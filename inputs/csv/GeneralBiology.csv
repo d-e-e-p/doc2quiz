@@ -1,0 +1,265 @@
+StartPage,EndPage,Level,Title
+11,12,1,1 Getting Started
+13,18,1,2 Biology - The Life Science
+13,13,2,2.1 Characteristics of life
+14,14,2,2.2 Nature of science
+14,16,2,2.3 Scientific method
+17,17,2,2.4 Charles Darwin
+17,17,2,2.5 After Darwin
+18,18,2,2.6 Challenges to Darwin
+19,22,1,3 The Nature of Molecules
+19,19,2,3.1 Matter
+19,19,2,3.2 The atom
+20,20,2,3.3 Mass and isotopes
+20,20,2,3.4 Electrons
+21,21,2,3.5 Chemical bonds
+21,21,2,3.6 Chemical reactions
+21,22,2,3.7 Water
+23,26,1,4 The Chemical Building Blocks of Life
+23,23,2,4.1 Carbon
+23,23,2,4.2 Carbohydrates
+24,24,2,4.3 Stereoisomers
+24,24,2,4.4 Lipids
+24,25,2,4.5 Proteins
+26,26,2,4.6 Hereditary (Genetic) information
+27,30,1,5 Life: History and Origin
+27,27,2,5.1 Properties of life
+27,27,2,5.2 Origin of life: 3 hypotheses
+28,28,2,5.3 The early earth
+29,29,2,5.4 Origin of cells
+29,29,2,5.5 The RNA world?
+29,29,2,5.6 The earliest cells
+30,30,2,5.7 Major steps in evolution of life
+31,32,1,6 Cells
+33,38,1,7 Cell structure
+33,36,2,7.1 What is a cell?
+37,37,2,7.2 History of cell knowledge
+38,38,2,7.3 Microscopes
+38,38,2,7.4 Cell size
+39,44,1,8 Structure of Eukaryotic cells
+39,39,2,8.1 Structure of the nucleus
+40,40,2,8.2 Chromatin
+40,41,2,8.3 Endoplasmic reticulum
+42,42,2,8.4 The Golgi apparatus
+42,42,2,8.5 Ribosomes
+42,42,2,8.6 DNA-containing organelles
+43,44,2,8.7 Cytoskeleton
+45,48,1,9 Membranes
+45,45,2,9.1 Biological membranes
+46,46,2,9.2 Phospholipid
+46,46,2,9.3 Fluid mosaic model
+46,47,2,9.4 Membrane proteins
+48,48,2,9.5 Receptor-mediated endocytosis
+49,50,1,10 Cell-cell interactions
+49,49,2,10.1 Cell signaling
+50,50,2,10.2 Communicating junctions
+51,54,1,11 Energy and Metabolism
+51,51,2,11.1 Energy
+51,51,2,11.2 Oxidation–Reduction
+52,52,2,11.3 NAD+
+52,52,2,11.4 Free energy
+52,53,2,11.5 Enzymes
+54,54,2,11.6 ATP
+54,54,2,11.7 Biochemical pathways
+55,58,1,12 Respiration: harvesting of energy
+55,55,2,12.1 Energy
+55,55,2,12.2 Respiration
+55,55,2,12.3 Respiration of glucose
+55,55,2,12.4 Alternative anaerobic respiration
+56,56,2,12.5 Glycolysis overview
+56,56,2,12.6 Regeneration of NAD+
+56,56,2,12.7 Alcohol fermentation
+56,56,2,12.8 Lactate formation
+57,57,2,12.9 Krebs cycle: overview
+57,57,2,12.10 ATP production
+57,58,2,12.11 Evolution of aerobic respiration
+59,66,1,13 Photosynthesis
+59,60,2,13.1 Light Reactions
+61,61,2,13.2 “Dark” reactions
+61,61,2,13.3 Prokaryote cell division
+62,62,2,13.4 Bacterial DNA replication
+62,62,2,13.5 Chromosome number
+62,62,2,13.6 Eukaryotic chromosomes
+63,63,2,13.7 Chromosome organization
+63,63,2,13.8 Human karyotype stained by chromosome painting
+63,63,2,13.9 Chromosomes
+63,63,2,13.10 Human chromosomes
+63,63,2,13.11 Mitotic cell cycle
+64,64,2,13.12 Replicated human chromosomes
+64,64,2,13.13 Mitosis
+64,64,2,13.14 Plant mitosis
+64,64,2,13.15 Controlling the cell cycle
+65,65,2,13.16 Cancer
+65,66,2,13.17 Mutations and cancer
+67,70,1,14 Sexual reproduction
+67,67,2,14.1 Sexual
+67,67,2,14.2 Sexual life cycle
+67,67,2,14.3 Meiosis
+68,68,2,14.4 Prophase I: synapsis
+68,68,2,14.5 Crossing over
+68,68,2,14.6 Microtubules and anaphase I
+68,68,2,14.7 Meiosis II
+68,68,2,14.8 Evolution of sex
+69,70,2,14.9 Consequences of sex
+71,72,1,15 Genetics
+73,76,1,16 Gregor Mendel and biological inheritance
+73,73,2,16.1 Mendel
+74,74,2,16.2 Mendel’s experiments
+74,74,2,16.3 Mendel’s seven pairs of traits
+74,74,2,16.4 Locus
+75,75,2,16.5 Modern Y chromosome
+75,75,2,16.6 Chromosome phenomena
+75,75,2,16.7 X-chromosome inactivation
+75,75,2,16.8 Barr body
+75,76,2,16.9 Human genetic disorders
+77,82,1,17 DNA: The Genetic Material
+77,77,2,17.1 DNA
+77,77,2,17.2 Historical perspective
+77,77,2,17.3 Hershey-Chase Experiment
+78,78,2,17.4 DNA/RNA components
+78,78,2,17.5 Chemical structure of DNA
+78,78,2,17.6 3D structure of DNA
+78,78,2,17.7 Franklin
+79,79,2,17.8 DNA replication
+79,79,2,17.9 DNA replication
+79,79,2,17.10 DNA polymerases
+80,80,2,17.11 DNA replication complex
+80,80,2,17.12 DNA replication
+80,80,2,17.13 DNA replication fork
+80,80,2,17.14 Replication units
+80,80,2,17.15 Replicon
+80,82,2,17.16 What is gene?
+83,86,1,18 Gene expression
+83,83,2,18.1 “Central Dogma”
+83,83,2,18.2 The Genetic Code
+83,83,2,18.3 Transcription
+84,84,2,18.4 Transcription bubble
+84,84,2,18.5 Eukaryote mRNA
+84,84,2,18.6 Translation
+84,84,2,18.7 Translation in bacteria
+85,85,2,18.8 Aminoacyl tRNA synthase
+85,85,2,18.9 Ribosome structure
+85,85,2,18.10 Large ribosome subunit
+85,85,2,18.11 Translation
+85,85,2,18.12 Initiation complex
+85,85,2,"18.13 Elongation, translocation"
+85,86,2,18.14 Introns/exons
+87,88,1,19 Gene regulation
+87,87,2,19.1 Transcriptional control
+87,87,2,19.2 DNA grooves
+88,88,2,19.3 Regulatory proteins
+88,88,2,19.4 Lac operon of E. coli
+88,88,2,19.5 Alternative splicing
+89,94,1,20 Mutation
+89,89,2,20.1 Point Mutations
+89,89,2,20.2 Substitution
+90,90,2,20.3 Larger mutations
+90,90,2,20.4 Chromosomal mutations
+90,90,2,20.5 Causes of mutations
+90,90,2,20.6 Effects of mutations
+91,91,2,20.7 Further reading
+91,91,2,20.8 Original notes
+92,92,2,20.9 Point mutation
+92,92,2,20.10 Acquisition of genetic variability
+92,92,2,20.11 Eukaryote genome
+93,94,2,20.12 Barbara McClintock
+95,100,1,21 Recombinant DNA technology
+95,95,2,21.1 Recombinant DNA technology
+95,95,2,21.2 Restriction endonucleases
+96,96,2,21.3 Restriction endonucleases
+96,96,2,21.4 Uses of cloned gene
+96,96,2,21.5 Other molecular procedures
+97,97,2,21.6 RFLP(restriction fragment length polymorphism) analysis
+97,97,2,21.7 Sanger DNA sequencing
+97,97,2,21.8 Automated sequencing
+97,97,2,21.9 Genome projects
+98,98,2,21.10 Biochips
+98,98,2,21.11 DNA chip controversies
+98,98,2,21.12 Gene patenting
+99,100,2,21.13 Stem cells
+101,114,1,22 Classification of Living Things
+105,105,2,22.1 Introduction
+106,106,2,22.2 Viral Replication
+107,107,2,22.3 Viral Genome
+107,107,2,22.4 Viruses Practice Questions
+108,108,2,22.5 Archaea
+108,108,2,22.6 Prokaryote evolution
+109,109,2,22.7 Domains of life: characteristics
+109,109,2,22.8 Introduction
+109,109,2,22.9 Classification of Protists
+109,109,2,22.10 Protozoa
+110,110,2,22.11 Algae
+111,111,2,22.12 Slime molds & Water molds
+112,114,2,22.13 Protists Practice Questions
+115,134,1,23 Multicellular Photosynthetic Autotrophs
+115,115,2,23.1 Plants
+115,115,2,23.2 Plant phyla
+115,115,2,23.3 Plant evolution
+116,116,2,23.4 Plant phylogeny
+116,116,2,23.5 Plant life cycles
+116,116,2,23.6 Moss life cycle
+116,116,2,23.7 Vascular plants
+117,117,2,23.8 Vascular plant life cycles
+117,117,2,23.9 Pterophyta (ferns)
+117,117,2,"23.10 Non-seed plants, continued"
+117,117,2,23.11 Seed plants
+118,118,2,23.12 Sporophyte/gametophyte
+118,118,2,23.13 Megasporangium (nucellus)
+118,118,2,23.14 Pollen
+118,118,2,23.15 Gymnosperms
+118,118,2,23.16 Pine life cycle
+118,118,2,23.17 Other Coniferophyta
+119,119,2,23.18 Other gymnosperms
+119,119,2,23.19 Angiosperms
+119,119,2,23.20 Earliest angiosperm
+119,119,2,23.21 Angiosperm flower
+119,119,2,23.22 Angiosperm life cycle
+119,119,2,23.23 Introduction
+120,120,2,23.24 Nutrition
+120,120,2,23.25 Fungal Reproduction
+121,121,2,23.26 Types of Fungi
+122,122,2,23.27 Key Terms
+122,122,2,23.28 Introduction
+122,123,2,23.29 Characteristics of an Animal
+124,124,2,23.30 Introduction to animal phyla
+125,125,2,23.31 Phylum Porifera
+126,127,2,23.32 Phylum Cnidaria
+128,128,2,23.33 Phylum Platyhelminthes
+129,129,2,23.34 Phylum Rotifera
+129,129,2,23.35 Phylum Nematoda
+130,130,2,23.36 Phylum Annelida
+131,131,2,23.37 Phylum Arthropoda
+132,132,2,23.38 Phylum Mollusca
+132,132,2,23.39 Phylum Echinodermata
+133,134,2,23.40 Phylum Chordata
+135,142,1,24 Chordates
+135,135,2,24.1 Characteristics
+135,135,2,24.2 Subphylum Urochordata
+136,136,2,24.3 Subphylum Cephalochordata
+136,142,2,24.4 Subphylum Vertebrata
+143,144,1,25 Tissues and Systems
+145,146,1,26 Epithelial tissue
+147,150,1,27 Connective tissue
+151,154,1,28 Muscle tissue
+155,158,1,29 Vertebrate digestive system
+159,162,1,30 Circulatory system
+163,166,1,31 Respiratory system
+164,164,2,31.1 Neuron structure
+165,165,2,31.2 Central nervous system
+165,166,2,31.3 Peripheral nervous system
+167,172,1,32 Sensory systems
+167,167,2,32.1 Taste and smell (chemoreception)
+167,167,2,32.2 Response to gravity and movement
+168,168,2,32.3 Vision
+168,168,2,32.4 Homeostasis
+169,172,2,32.5 Osmotic environments and regulations
+173,174,1,33 Additional material
+174,174,2,33.1 External Links
+175,176,1,34 Glossary
+176,176,2,34.1 Users
+177,182,1,35 Contributors
+183,186,1,List of Figures
+187,188,1,36 Licenses
+187,187,2,36.1 GNU GENERAL PUBLIC LICENSE
+188,188,2,36.2 GNU Free Documentation License
+189,189,2,36.3 GNU Lesser General Public License
