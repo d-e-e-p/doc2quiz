@@ -2,7 +2,7 @@
 #
 #
 import argparse
-from .Utils import Settings
+from .Utils import Config
 
 # steps
 from .Pdf2Txt import pdf_to_txt
@@ -18,7 +18,7 @@ class Doc2Quiz:
         google-genai google-vertexai groq huggingface mistralai nvidia-ai-endpoints ollama
         openai together upstage""".split()
         self.model = "gpt-4o-mini"
-        self.settings = Settings()
+        self.cfg = Config()
         self.setup_args()
 
     def setup_args(self):
@@ -35,7 +35,7 @@ class Doc2Quiz:
 
     def pdf_to_txt(self):
         print("Converting from PDF to TXT...")
-        pdf_to_txt(self.settings)
+        pdf_to_txt(self.cfg)
         pass
 
     def txt_to_yaml(self):
@@ -53,13 +53,13 @@ class Doc2Quiz:
     def call_method_if_exists(self, method_name):
         if method_name in globals() and callable(globals()[method_name]):
             method = globals()[method_name]
-            method(self.settings)
+            method(self.cfg)
         else:
             print(f"The method '{method_name}' does not exist or is not callable.")
 
     def process_conversion(self):
-        from_format = self.settings.from_format
-        to_format = self.settings.to_format
+        from_format = self.cfg.from_format
+        to_format = self.cfg.to_format
         try:
             # Find indices for the conversion stages
             from_idx = self.stages.index(from_format)
@@ -67,7 +67,7 @@ class Doc2Quiz:
 
             if from_idx >= to_idx:
                 print(f"Conversion from {from_format} to {to_format} is not valid.")
-                print(settings)
+                print(cfg)
                 return
 
             # Loop through the required stages and call the corresponding methods
@@ -78,17 +78,17 @@ class Doc2Quiz:
         except ValueError as e:
             print(f"Invalid format specified: {e}")
 
-    def update_settings(self, args):
+    def update_config(self, args):
         # from is a reserved keyword in python
-        self.settings.from_format = getattr(args, "from")
-        self.settings.to_format = getattr(args, "to")
-        self.settings.platform = getattr(args, "platform")
-        self.settings.model = getattr(args, "model")
+        self.cfg.from_format = getattr(args, "from")
+        self.cfg.to_format = getattr(args, "to")
+        self.cfg.platform = getattr(args, "platform")
+        self.cfg.model = getattr(args, "model")
 
     def run(self):
         # Parse the arguments
         args = self.parser.parse_args()
-        self.update_settings(args)
+        self.update_config(args)
         self.process_conversion()
 
 
