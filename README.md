@@ -1,20 +1,16 @@
 # doc2quiz
 
-This project is used to generate quiz questions from a pdf document.
-# doc2quiz
-
 This project create a [Canvas](https://canvas.instructure.com/) quiz from pdf by asking Chat API
 to create questions.
 
 ## Project Organization
-
 
 The program assumes a directory structure and environment variables to access chat API.
 For injesting the initial files, it expects a pdf and csv file, eg:
     [toc.csv](inputs/csv/toc.csv)
     [book.pdf](inputs/pdf/book.pdf)
 
-the `toc.csv` file has the start/end page numbers, a tag to mark each section and a title. eg:
+the `toc.csv` file should have start/end page numbers, a tag to mark each section and a title. eg:
 ```
 start,end,chapter,title
 33,38,7.0,7 Cell structure
@@ -25,7 +21,7 @@ start,end,chapter,title
 chapter field is a tag to mark each quiz section, which should be a unique short number or
 something like that.
 the utility [pdf_extract_toc.py](bin/pdf_extract_toc.py) could be used to produce a good starting
-point to edit.  each section should be a couple of pages of text--too much text in one section
+point.  each section should be a couple of pages of text--too much text in one section
 would go over the chat session token limits.
 
 
@@ -36,17 +32,19 @@ would go over the chat session token limits.
 In the first phase data is injested into the system by converting pdf chapters marked in toc.csv
 into separate pages:
 ```
-    doc2quiz --convert pdf2txt
+    doc2quiz --from pdf --to txt
 ```
 
 ### Step2: asking GPT to make up questions
 
 Quiz questions happen to be stored here in yaml format, so `txt2yaml` converts chapter contents
-to yaml. Process relies on having a OPENAI_API_KEY defined in environment.
+o yaml. Process relies on having a OPENAI_API_KEY defined in environment.
 ```
-    doc2quiz --convert txt2yaml
+    doc2quiz --from txt --to yaml
 ```
 It's useful to go through the questions at this point and cull or edit questions.
+You can also convert directly from `--from pdf --to yaml` which runs all both these steps in one 
+session.
 
 
 ### Step3: Converting questions to Canvas QTI format
@@ -54,23 +52,31 @@ It's useful to go through the questions at this point and cull or edit questions
 Canvas can read in questions using an XML format called QTI. The next step converts from yaml to
 qti xml:
 ```
-    doc2quiz --convert yaml2xml
+    doc2quiz --from yaml --to xml
 ```
-You can also convert directly from `pdf2yaml` or `pdf2xml`, which runs all 3 steps in one session.
+You can also convert directly from `--from pdf --to xml`, which runs all 3 steps in one session.
 
 ### Step4: Uploading quiz to Canvas 
 
 At the end of generation, there is an xml directory under output/xml and a zip file called
 output/xml.zip that can be uploaded as shown in
-(https://community.canvaslms.com/t5/Instructor-Guide/How-do-I-import-quizzes-from-QTI-packages/ta-p/1046)
+[How-do-I-import-quizzes-from-QTI-packages](https://community.canvaslms.com/t5/Instructor-Guide/How-do-I-import-quizzes-from-QTI-packages/ta-p/1046) . This upload can also be done automatically with:
+
+```
+    doc2quiz --from pdf -to quiz
+```
 
 ## Running from cloned dir
+
 
 to run the program under bin/, you might have to add the src dir to your
 python path with:
 
 ```
+git clone https://github.com/d-e-e-p/doc2quiz.git
+cd doc2quiz
 pip install -e .
+./bin/doc2quiz --help
 ```
 
 
