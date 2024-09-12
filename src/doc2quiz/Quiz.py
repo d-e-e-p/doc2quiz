@@ -83,6 +83,8 @@ class Item:
         return v
 
 class Questions(BaseModel):
+    title: Optional[str] = None
+    ident: Optional[str] = None
     items: List[Item]
 
 class Quiz(BaseModel):

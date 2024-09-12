@@ -122,6 +122,7 @@ end of passage.
             if yaml_txt:
                 with open(yaml_file_name, 'w', encoding='utf-8') as file:
                     file.write(f"# {chapter} : {title}\n")
+                    # TODO: process yaml to add additional tags
                     file.write(yaml_txt)
                     file.write("\n")
                     print(f'Saved ch{chapter} to {yaml_file_name}')
