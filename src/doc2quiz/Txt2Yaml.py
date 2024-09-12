@@ -15,6 +15,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, field_validator, ValidationError
 from pydantic_yaml import parse_yaml_raw_as, to_yaml_str
 
+
 class Txt2Yaml:
     def __init__(self, cfg):
         self.cfg = cfg
@@ -97,16 +98,15 @@ end of passage.
             # update with title and ident
 
             if 'questions' in out_parsed and isinstance(out_parsed['questions'], dict):
-                ident = f"{self.cfg.platform}-{self.cfg.model}"
-                out_edited = {}
-                out_edited['questions'] = {}
-                out_edited['questions']['title'] = title
-                out_edited['questions']['ident'] = ident
+                title_yaml = f"ch{chapter} : {title}"
+                ident_yaml = f"{self.cfg.platform}-{self.cfg.model}"
+                out_edited = {'questions': {'title': title_yaml, 'ident': ident_yaml}}
                 out_edited['questions'].update(out_parsed['questions'])
+                yaml_str = yaml.dump(out_edited, sort_keys=False)
+                return yaml_str
             else:
                 print(f"The 'questions' key is missing in {out_parsed}")
-            yaml_str = yaml.dump(out_edited, sort_keys=False)
-            return yaml_str
+                return None
 
         else:
             print(f"parsing_error: res={res}")
@@ -122,8 +122,8 @@ end of passage.
                 self.convert(chapter, title)
 
     def convert(self, chapter, title):
-        txt_file_name = f"{self.cfg.output_dir_txt}/{chapter}.txt"
-        yaml_file_name = f"{self.cfg.output_dir_yaml}/{chapter}.yaml"
+        txt_file_name = f"{self.cfg.output_dir_txt}/ch{chapter}.txt"
+        yaml_file_name = f"{self.cfg.output_dir_yaml}/ch{chapter}.yaml"
 
         # TODO: check txt_file_name exists
         with open(txt_file_name, 'r', encoding='utf-8') as file:

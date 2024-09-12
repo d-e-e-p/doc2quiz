@@ -60,7 +60,7 @@ class Pdf2Txt:
 
                         # Save the extracted text to a file
                         chapter = chapter.replace('.', 'p')
-                        file_name = f'{self.cfg.output_dir_txt}/{chapter}.txt'
+                        file_name = f'{self.cfg.output_dir_txt}/ch{chapter}.txt'
                         with open(file_name, 'w', encoding='utf-8') as text_file:
                             text_file.write(f"{chapter} - {title} (pages {row['start']} to {row['end']})\n")
                             text_file.write(extracted_text)

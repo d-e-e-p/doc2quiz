@@ -32,7 +32,7 @@ class Doc2Quiz:
                                  default='openai',
                                  help="chat platform.")
         self.parser.add_argument('--model',
-                                 default='chatgpt-4o-latest',
+                                 default='gpt-4o-2024-08-06',
                                  help="chat model, eg gpt-4o-mini or claude-3-5-sonnet-20240620.")
 
     def call_method_if_exists(self, method_name):

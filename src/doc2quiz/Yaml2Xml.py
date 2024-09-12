@@ -28,8 +28,8 @@ class Yaml2Xml:
                 self.convert(chapter, title)
 
     def convert(self, chapter, title):
-        yaml_file_name = f"{self.cfg.output_dir_yaml}/{chapter}.yaml"
-        xml_file_name = f"{self.cfg.output_dir_xml}/{chapter}.xml"
+        yaml_file_name = f"{self.cfg.output_dir_yaml}/ch{chapter}.yaml"
+        xml_file_name = f"{self.cfg.output_dir_xml}/ch{chapter}.xml"
 
         # TODO: check yaml_file_name exists
         with open(yaml_file_name, 'r', encoding='utf-8') as file:
