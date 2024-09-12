@@ -39,7 +39,6 @@ class Txt2Yaml:
         else:
             return obj
 
-
     def get_prompt(self, text):
         num_questions = round(len(text) / self.cfg.num_words_per_question)
 
@@ -77,11 +76,10 @@ the passage:
 end of passage.
 """
     
-
     def ask_questions_yaml(self, chapter, title, extracted_text):
 
         prompt = self.get_prompt(extracted_text)
-        model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        model = ChatOpenAI(model=self.cfg.model, temperature=0)
         structured_llm = model.with_structured_output(Quiz, include_raw=True)
         res = structured_llm.invoke(prompt)
         if res['parsing_error'] is None:
@@ -91,12 +89,25 @@ end of passage.
             out_recreate = self.remove_optional_nulls(out_from_yaml)
             out_check = out_parsed == out_recreate
             if out_check:
-                print(f" out_check passed = {out_check}")
-                return yaml_str
+                pass
+                # print(f" out_check passed = {out_check}")
             else:
                 print(f"out check mismatch: out_parsed  = \n{out_parsed}")
                 print(f"out check mismatch: out_check   = \n{out_check}")
-                return yaml_str
+            # update with title and ident
+
+            if 'questions' in out_parsed and isinstance(out_parsed['questions'], dict):
+                ident = f"{self.cfg.platform}-{self.cfg.model}"
+                out_edited = {}
+                out_edited['questions'] = {}
+                out_edited['questions']['title'] = title
+                out_edited['questions']['ident'] = ident
+                out_edited['questions'].update(out_parsed['questions'])
+            else:
+                print(f"The 'questions' key is missing in {out_parsed}")
+            yaml_str = yaml.dump(out_edited, sort_keys=False)
+            return yaml_str
+
         else:
             print(f"parsing_error: res={res}")
             return None
@@ -127,13 +138,12 @@ end of passage.
                     file.write("\n")
                     print(f'Saved ch{chapter} to {yaml_file_name}')
 
-
     def check_files(self):
         try:
             if not create_output_dirs("yaml", self.cfg.output_dir_yaml):
                 raise OSError(f"Failed to create output directory: {self.cfg.output_dir_yaml}")
             if not check_files_in_dir(".txt", self.cfg.output_dir_txt):
-                raise OSError(f"input txt directory: {self.cfg.output_dir_yaml}")
+                raise OSError(f"input txt directory: {self.cfg.output_dir_txt}")
             if not validate_input_file(".csv", self.cfg.input_file_csv):
                 raise OSError(f"Invalid CSV file: {self.cfg.input_file_csv}")
 

@@ -27,7 +27,7 @@ class Config(BaseSettings):
     output_dir_xml: str = "outputs/xml"
 
     platform: str = "openai"
-    model: str = "gpt-4o-mini"
+    model: str = "chatgpt-4o-latest"
 
 
 def create_output_dirs(description, dirname):

@@ -5,10 +5,11 @@ import argparse
 from .Utils import Config
 
 # steps
-from .Pdf2Txt import pdf_to_txt
-from .Txt2Yaml import txt_to_yaml
-from .Yaml2Xml import yaml_to_xml
-from .Xml2Quiz import xml_to_quiz
+from .Pdf2Txt import pdf_to_txt         # noqa: F401
+from .Txt2Yaml import txt_to_yaml       # noqa: F401
+from .Yaml2Xml import yaml_to_xml       # noqa: F401
+from .Xml2Quiz import xml_to_quiz       # noqa: F401
+
 
 class Doc2Quiz:
     def __init__(self):
@@ -30,25 +31,9 @@ class Doc2Quiz:
         self.parser.add_argument('--platform', choices=self.platforms,
                                  default='openai',
                                  help="chat platform.")
-        self.parser.add_argument('--model', choices=self.platforms, 
+        self.parser.add_argument('--model',
+                                 default='chatgpt-4o-latest',
                                  help="chat model, eg gpt-4o-mini or claude-3-5-sonnet-20240620.")
-
-    def pdf_to_txt(self):
-        print("Converting from PDF to TXT...")
-        pdf_to_txt(self.cfg)
-        pass
-
-    def txt_to_yaml(self):
-        print("Converting from TXT to YAML...")
-        pass
-
-    def yaml_to_xml(self):
-        print("Converting from YAML to XML...")
-        pass
-
-    def xml_to_quiz(self):
-        print("Converting from XML to Quiz format...")
-        pass
 
     def call_method_if_exists(self, method_name):
         if method_name in globals() and callable(globals()[method_name]):
@@ -67,12 +52,11 @@ class Doc2Quiz:
 
             if from_idx >= to_idx:
                 print(f"Conversion from {from_format} to {to_format} is not valid.")
-                print(cfg)
                 return
 
             # Loop through the required stages and call the corresponding methods
             for i in range(from_idx, to_idx):
-                method_name = f"{self.stages[i]}_to_{self.stages[i+1]}"
+                method_name = f"{self.stages[i]}_to_{self.stages[i + 1]}"
                 self.call_method_if_exists(method_name)
 
         except ValueError as e:
