@@ -12,8 +12,8 @@ from .ExampleYaml import example_yaml
 from .Quiz import Quiz
 
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, field_validator, ValidationError
-from pydantic_yaml import parse_yaml_raw_as, to_yaml_str
+from pydantic import BaseModel, ValidationError
+from pydantic_yaml import parse_yaml_raw_as
 
 
 class Txt2Yaml:
@@ -97,16 +97,18 @@ end of passage.
                 print(f"out check mismatch: out_check   = \n{out_check}")
             # update with title and ident
 
-            if 'questions' in out_parsed and isinstance(out_parsed['questions'], dict):
-                title_yaml = f"ch{chapter} : {title}"
-                ident_yaml = f"{self.cfg.platform}-{self.cfg.model}"
-                out_edited = {'questions': {'title': title_yaml, 'ident': ident_yaml}}
-                out_edited['questions'].update(out_parsed['questions'])
-                yaml_str = yaml.dump(out_edited, sort_keys=False)
-                return yaml_str
-            else:
-                print(f"The 'questions' key is missing in {out_parsed}")
-                return None
+            if 'questions' not in out_parsed:
+                if not isinstance(out_parsed['questions'], dict):
+                    print(f"The 'questions' key is missing in {out_parsed}")
+                    return None
+
+            # ident has to be unique for all quiz in upload set
+            title_yaml = f"ch{chapter} : {title}"
+            ident_yaml = f"ch{chapter}-{self.cfg.platform}-{self.cfg.model}"
+            out_edited = {'questions': {'title': title_yaml, 'ident': ident_yaml}}
+            out_edited['questions'].update(out_parsed['questions'])
+            yaml_str = yaml.dump(out_edited, sort_keys=False)
+            return yaml_str
 
         else:
             print(f"parsing_error: res={res}")

@@ -101,6 +101,7 @@ class CanvasInterface:
             # Create a table using PrettyTable
             table = PrettyTable()
             table.field_names = ["Version", "Quiz Title"]
+            table.align["Quiz Title"] = "l"
 
             # Iterate through each quiz and add its version number and title to the table
             for quiz in quizzes:
