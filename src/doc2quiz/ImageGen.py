@@ -53,10 +53,11 @@ class ImageGen:
 
         # Save the output
         doc.close()
-        output_pdf = "out.pdf"
-        new_pdf.save(output_pdf)
-        print(f"Composite PDF created and saved as '{output_pdf}'.")
-        # new_pdf.close()
+        if False:
+            output_pdf = "out.pdf"
+            new_pdf.save(output_pdf)
+            print(f"Composite PDF created and saved as '{output_pdf}'.")
+        # need to new_pdf.close() later...
         return new_pdf
 
     def find_approximate_match(self, concat_text, search_string):
@@ -134,6 +135,36 @@ class ImageGen:
                 print(f" missing image for {ql}")
         return matching_blocks
 
+    def scale_bounding_rect(self, bounding_rect, scale_factor):
+        """
+        Scale the size of the bounding rectangle in all directions by a specified factor.
+        
+        :param bounding_rect: The original bounding rectangle.
+        :param scale_factor: The factor by which to scale the rectangle (e.g., 0.5 to halve, 2.0 to double).
+        :return: A new scaled Rect object.
+        """
+        # Calculate the center of the rectangle
+        center_x = (bounding_rect.x0 + bounding_rect.x1) / 2
+        center_y = (bounding_rect.y0 + bounding_rect.y1) / 2
+
+        # Calculate the current width and height
+        width = bounding_rect.width
+        height = bounding_rect.height
+
+        # Scale the width and height by the scale_factor
+        new_width = width * scale_factor
+        new_height = height * scale_factor
+
+        # Create the new scaled rectangle by expanding or shrinking equally from the center
+        new_rect = pymupdf.Rect(
+            center_x - new_width / 2,   # new x0
+            center_y - new_height / 2,  # new y0
+            center_x + new_width / 2,   # new x1
+            center_y + new_height / 2   # new y1
+        )
+
+        return new_rect
+
     def double_bounding_rect(self, bounding_rect):
         """
         Double the size of the bounding rectangle in all directions.
@@ -156,30 +187,80 @@ class ImageGen:
         
         return new_rect
 
-    def save_block_images(self, matching_blocks, page):
+    def mark_intersecting_blocks(self, blocks, page):
+        
+        # Convert block tuples to Rect objects and store them with original block
+        block_rects = [(pymupdf.Rect(block[:4]), block) for block in blocks]
+
+        # Create a list to store groups of intersecting block rects
+        intersecting_groups = []
+
+        # Compare blocks to find intersecting ones
+        for rect, block in block_rects:
+            added_to_group = False
+            # Check against existing groups
+            for group in intersecting_groups:
+                # If rect intersects with any block in the group, add to group
+                if any(rect.intersects(other_rect) for other_rect, _ in group):
+                    group.append((rect, block))
+                    added_to_group = True
+                    break
+            
+            # If not added to any group, create a new group
+            if not added_to_group:
+                intersecting_groups.append([(rect, block)])
+
+        # Draw rectangles for each group
+        for group in intersecting_groups:
+            # Combine intersecting rectangles into one larger rectangle
+            combined_rect = pymupdf.Rect()
+            for rect, _ in group:
+                combined_rect.include_rect(rect)
+            
+            # Draw the combined rectangle on the page
+            scaled_rect = self.scale_bounding_rect(combined_rect, 1.1)
+            page.draw_rect(scaled_rect, color=(1, 0, 0), width=2, radius=0.1)
+
+    def delete_all_annot(self, page):
+        annot = page.first_annot
+        breakpoint()
+        
+        # Iterate over all annotations and delete them
+        while annot:
+            page.delete_annot(annot)  # Delete the current annotation
+            # Update to the next annotation (because list changes after deletion)
+            annot = page.first_annot
+
+        
+
+    def save_block_images(self, matching_blocks, page, doc):
         """
         Highlights the text blocks in a PDF page, extracts the highlighted area,
         zooms out by 2x, and saves the resulting image.
-
-        Parameters:
-            matching_blocks (dict): A dictionary with quotes as keys and corresponding text blocks as values.
-            page (fitz.Page): The page object from the PyMuPDF library.
-            output_path (str): The path where the image will be saved.
         """
+        highlight_text_box = False
         
-        # Set the scale factor for zooming out (2x zoom out means scaling to 50%)
-
         quote_images = {}
 
+        # Set the scale factor for zooming out (2x zoom out means scaling to 50%)
         zoom_out_scale = 10
         counter = 0
         num_blocks = len(matching_blocks)
         if num_blocks:
             padding_width = math.ceil(math.log10(num_blocks + 1))
-        
+
         # Iterate over the matching quotes and their blocks
         for ident, blocks in matching_blocks.items():
-            page.add_highlight_annot(blocks)
+
+            # create temp copy of pdf for markup
+            tmp_doc = pymupdf.open()
+            # tmp_doc.delete_page(0)
+            tmp_page = tmp_doc.new_page(width=page.rect.width, height=page.rect.height)
+            tmp_page.show_pdf_page(page.rect, doc)
+
+            if highlight_text_box:
+                tmp_page.add_highlight_annot(blocks)
+            self.mark_intersecting_blocks(blocks, tmp_page)
 
             # Calculate the bounding box that surrounds all the blocks
             bounding_rect = pymupdf.Rect()
@@ -191,8 +272,8 @@ class ImageGen:
             mat = pymupdf.Matrix(zoom_out_scale, zoom_out_scale)
             
             # Render the entire page as a pixmap (image)
-            double_bounding_rect = self.double_bounding_rect(bounding_rect)
-            pix = page.get_pixmap(matrix=mat, clip=double_bounding_rect)  #
+            double_bounding_rect = self.scale_bounding_rect(bounding_rect, 2.0)
+            pix = tmp_page.get_pixmap(matrix=mat, clip=double_bounding_rect)  #
             image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
             counter += 1
             imgname = f"{self.chapter}/img{counter:0{padding_width}}.png"
@@ -201,7 +282,9 @@ class ImageGen:
             os.makedirs(dirname, exist_ok=True)
             image.save(output_file)
             quote_images[ident] = imgname
-
+            # self.delete_all_annot(tmp_page)
+            tmp_doc.close()
+            
         return quote_images
 
     def generate(self, quotes):
@@ -210,7 +293,7 @@ class ImageGen:
         tpage = page.get_textpage()
         blocks = tpage.extractBLOCKS()
         matching_blocks = self.find_matching_blocks(blocks, quotes)
-        quote_images = self.save_block_images(matching_blocks, page)
+        quote_images = self.save_block_images(matching_blocks, page, doc)
         doc.close()
         return quote_images
 
