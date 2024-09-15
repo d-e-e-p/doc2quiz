@@ -4,10 +4,9 @@
 import sys
 import os
 import yaml
-import csv
 import json
 
-from .Utils import create_output_dirs, validate_input_file, check_files_in_dir
+from .Utils import Utils
 from .ExampleYaml import example_yaml
 from .Quiz import Quiz
 
@@ -45,7 +44,7 @@ class Txt2Yaml:
 
         if num_questions < 2:
             if len(text) < 100:
-                print(f"Skipping ch{chapter} : {title} : length len={len(text)} so num_questions={num_questions}")
+                print(f"Skipping {chapter} : {title} : length len={len(text)} so num_questions={num_questions}")
                 return None
             else:
                 num_questions = 1
@@ -103,8 +102,8 @@ end of passage.
                     return None
 
             # ident has to be unique for all quiz in upload set
-            title_yaml = f"ch{chapter} : {title}"
-            ident_yaml = f"ch{chapter}-{self.cfg.platform}-{self.cfg.model}"
+            title_yaml = f"{chapter} : {title}"
+            ident_yaml = f"{chapter}-{self.cfg.platform}-{self.cfg.model}"
             out_edited = {'questions': {'title': title_yaml, 'ident': ident_yaml}}
             out_edited['questions'].update(out_parsed['questions'])
             yaml_str = yaml.dump(out_edited, sort_keys=False)
@@ -115,17 +114,13 @@ end of passage.
             return None
 
     def process_csv(self):
-        with open(self.cfg.input_file_csv, 'r') as csv_file:
-            csv_reader = csv.DictReader(csv_file)
-            for row in csv_reader:
-                chapter = row['chapter']
-                title = row['title']
-                chapter = chapter.replace('.', 'p')
-                self.convert(chapter, title)
+        lines = Utils.read_toc_csv(self.cfg.input_file_csv)
+        for start_page, end_page, chapter, title in lines:
+            self.convert(chapter, title)
 
     def convert(self, chapter, title):
-        txt_file_name = f"{self.cfg.output_dir_txt}/ch{chapter}.txt"
-        yaml_file_name = f"{self.cfg.output_dir_yaml}/ch{chapter}.yaml"
+        txt_file_name = f"{self.cfg.output_dir_txt}/{chapter}.txt"
+        yaml_file_name = f"{self.cfg.output_dir_yaml}/{chapter}.yaml"
 
         # TODO: check txt_file_name exists
         with open(txt_file_name, 'r', encoding='utf-8') as file:
@@ -138,15 +133,15 @@ end of passage.
                     # TODO: process yaml to add additional tags
                     file.write(yaml_txt)
                     file.write("\n")
-                    print(f'Saved ch{chapter} to {yaml_file_name}')
+                    print(f'Saved {chapter} to {yaml_file_name}')
 
     def check_files(self):
         try:
-            if not create_output_dirs("yaml", self.cfg.output_dir_yaml):
+            if not Utils.create_output_dirs("yaml", self.cfg.output_dir_yaml):
                 raise OSError(f"Failed to create output directory: {self.cfg.output_dir_yaml}")
-            if not check_files_in_dir(".txt", self.cfg.output_dir_txt):
+            if not Utils.check_files_in_dir(".txt", self.cfg.output_dir_txt):
                 raise OSError(f"input txt directory: {self.cfg.output_dir_txt}")
-            if not validate_input_file(".csv", self.cfg.input_file_csv):
+            if not Utils.validate_input_file(".csv", self.cfg.input_file_csv):
                 raise OSError(f"Invalid CSV file: {self.cfg.input_file_csv}")
 
         except (OSError) as e:

@@ -2,10 +2,9 @@
 #
 #
 
-import csv
 import sys
 
-from .Utils import create_output_dirs, validate_input_file, check_files_in_dir
+from .Utils import Utils
 from .Qti import Qti
 
 
@@ -13,41 +12,44 @@ class Yaml2Xml:
     def __init__(self, cfg):
         self.cfg = cfg
 
-    def convert_yaml_to_xml(self, yaml_content):
-        quiz = Qti(yaml_content)
-        xml_content = quiz.to_qti()
+    def convert_yaml_to_xml(self, start_page, end_page, chapter, yaml_content):
+        qti = Qti(self.cfg, start_page, end_page, chapter, yaml_content)
+        qti.generate_feedback_images()
+        xml_content = qti.to_xml()
         return xml_content
 
     def process_yaml(self):
-        with open(self.cfg.input_file_csv, 'r') as csv_file:
-            csv_reader = csv.DictReader(csv_file)
-            for row in csv_reader:
-                chapter = row['chapter']
-                title = row['title']
-                chapter = chapter.replace('.', 'p')
-                self.convert(chapter, title)
+        lines = Utils.read_toc_csv(self.cfg.input_file_csv)
+        for line in lines:
+            self.convert(line)
 
-    def convert(self, chapter, title):
-        yaml_file_name = f"{self.cfg.output_dir_yaml}/ch{chapter}.yaml"
-        xml_file_name = f"{self.cfg.output_dir_xml}/ch{chapter}.xml"
+    def convert(self, line):
+        start_page, end_page, chapter, title = line
+
+        yaml_file_name = f"{self.cfg.output_dir_yaml}/{chapter}.yaml"
+        xml_file_name = f"{self.cfg.output_dir_xml}/{chapter}.xml"
 
         # TODO: check yaml_file_name exists
         with open(yaml_file_name, 'r', encoding='utf-8') as file:
             yaml_content = file.read()
-            xml_content = self.convert_yaml_to_xml(yaml_content)
+            xml_content = self.convert_yaml_to_xml(start_page, end_page, chapter, yaml_content)
             if xml_content:
                 with open(xml_file_name, 'w', encoding='utf-8') as file:
                     file.write(xml_content)
                     file.write(f"\n<!-- {chapter} {title} -->\n")
-                    print(f'Saved ch{chapter} to {xml_file_name}')
+                    print(f'Saved {chapter} to {xml_file_name}')
 
     def check_files(self):
         try:
-            if not create_output_dirs("xml", self.cfg.output_dir_xml):
+            if not Utils.create_output_dirs("xml", self.cfg.output_dir_xml):
                 raise OSError(f"Failed to create output directory: {self.cfg.output_dir_xml}")
-            if not check_files_in_dir(".yaml", self.cfg.output_dir_yaml):
+            if not self.cfg.no_feedback_images:
+                if not Utils.create_output_dirs("png", self.cfg.output_dir_png):
+                    raise OSError(f"Failed to create output directory: {self.cfg.output_dir_png}")
+
+            if not Utils.check_files_in_dir(".yaml", self.cfg.output_dir_yaml):
                 raise OSError(f"input yaml directory: {self.cfg.output_dir_yaml}")
-            if not validate_input_file(".csv", self.cfg.input_file_csv):
+            if not Utils.validate_input_file(".csv", self.cfg.input_file_csv):
                 raise OSError(f"Invalid CSV file: {self.cfg.input_file_csv}")
 
         except (OSError) as e:

@@ -18,7 +18,6 @@ class Doc2Quiz:
         self.platforms = """ai21 anthropic aws cohere community databricks fireworks
         google-genai google-vertexai groq huggingface mistralai nvidia-ai-endpoints ollama
         openai together upstage""".split()
-        self.model = "gpt-4o-mini"
         self.cfg = Config()
         self.setup_args()
 
@@ -34,6 +33,11 @@ class Doc2Quiz:
         self.parser.add_argument('--model',
                                  default='gpt-4o-2024-08-06',
                                  help="chat model, eg gpt-4o-mini or claude-3-5-sonnet-20240620.")
+        self.parser.add_argument('--no_feedback_images', action='store_true', 
+                                 help="do not generate images of pdf for feedback on quiz questions")
+        self.parser.add_argument('--num_words_per_question',
+                                 default='100',
+                                 help="determine th number of questions for a chapter based on this ratio")
 
     def call_method_if_exists(self, method_name):
         if method_name in globals() and callable(globals()[method_name]):
@@ -63,11 +67,13 @@ class Doc2Quiz:
             print(f"Invalid format specified: {e}")
 
     def update_config(self, args):
-        # from is a reserved keyword in python
+        # from is a reserved keyword in python, so we have to use getattr
         self.cfg.from_format = getattr(args, "from")
-        self.cfg.to_format = getattr(args, "to")
-        self.cfg.platform = getattr(args, "platform")
-        self.cfg.model = getattr(args, "model")
+        self.cfg.to_format = args.to
+        self.cfg.platform = args.platform
+        self.cfg.model = args.model
+        self.cfg.no_feedback_images = args.no_feedback_images
+        self.cfg.num_words_per_question = int(args.num_words_per_question)
 
     def run(self):
         # Parse the arguments

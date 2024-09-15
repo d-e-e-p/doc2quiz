@@ -2,18 +2,27 @@
 
 import random
 import re
+import hashlib
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
+
 
 from pydantic_yaml import parse_yaml_raw_as
 
 from .Quiz import Quiz
+from .ImageGen import ImageGen
 
 
 class Qti:
-    def __init__(self, yaml_content):
+    def __init__(self, cfg, start_page, end_page, chapter, yaml_content):
         self.generated_ids = set()
+        self.cfg = cfg
+        self.chapter = chapter
+        self.start_page = start_page
+        self.end_page = end_page
         self.quiz = self.parse_quiz_yaml(yaml_content)
+        self.image_gen = ImageGen(cfg, start_page, end_page, chapter)
+        self.quote_images = {}
 
     def parse_quiz_yaml(self, yaml_content) -> 'Quiz':
         quiz = parse_yaml_raw_as(Quiz, yaml_content)
@@ -36,7 +45,26 @@ class Qti:
         else:
             print(f"No handler found for item type: {item.type}")
 
-    def to_qti(self) -> str:
+    def hash_string_to_key(self, text, length=8):
+        hash_object = hashlib.sha256(text.encode('utf-8'))
+        short_hash = hash_object.hexdigest()[:length]
+        return short_hash
+
+    def generate_feedback_images(self):
+        # loop over all feedback items
+        # List to hold all quotes
+        if self.cfg.no_feedback_images:
+            return
+
+        quotes = {}
+        for item in self.quiz.questions.items:
+            item.ident = f"item{self.generate_unique_id()}"
+            if item.quotes:
+                quotes[item.ident] = item.quotes
+
+        self.quote_images = self.image_gen.generate(quotes)
+
+    def to_xml(self) -> str:
         # Create the root element with the necessary namespaces
         questestinterop = ET.Element("questestinterop", {
             "xmlns": "http://www.imsglobal.org/xsd/ims_qtiasiv1p2p1.xsd",
@@ -64,7 +92,7 @@ class Qti:
 
         # Iterate over each item in the quiz
         for i, item in enumerate(self.quiz.questions.items, start=1):
-            item_element = ET.SubElement(section, "item", ident=f"item{self.generate_unique_id()}", title=item.title)
+            item_element = ET.SubElement(section, "item", ident=item.ident, title=item.title)
 
             # Item metadata
             itemmetadata = ET.SubElement(item_element, "itemmetadata")
@@ -163,13 +191,8 @@ class Qti:
                 # ET.SubElement(respcondition, "displayfeedback", feedbacktype="Response", linkrefid=f"feedback_{i}")
 
         # Add general feedback (explanation)
-        if item.explanation:
-            itemfeedback = ET.SubElement(item_element, "itemfeedback", ident="general_fb")
-            flow_mat = ET.SubElement(itemfeedback, "flow_mat")
-            material = ET.SubElement(flow_mat, "material")
-            mattext = ET.SubElement(material, "mattext", texttype="text/html")
-            mattext.text = item.explanation
-
+        self._add_general_feedback(item_element, item)
+                
         # Add feedback for each option
         for i, option in enumerate(item.options, start=1):
             if option.explanation:
@@ -208,6 +231,13 @@ class Qti:
             material = ET.SubElement(flow_mat, "material")
             mattext = ET.SubElement(material, "mattext", texttype="text/html")
             mattext.text = item.explanation
+
+        if hasattr(item, 'quotes') and not self.cfg.no_feedback_images:
+            if item.ident in self.quote_images:
+                mattext.text += "\n"
+                imgsrc = "$IMS-CC-FILEBASE$/Uploaded Media/png/" + self.quote_images[item.ident]
+                mattext.text += f"""<img src="{imgsrc}">\n"""
+
 
     def _handle_multiple_dropdowns_item(self, item, item_element):
         # Add the presentation element

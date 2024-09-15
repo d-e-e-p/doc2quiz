@@ -27,6 +27,7 @@ class Dropdown(BaseModel):
 
 class Item(BaseModel):
     type: str
+    ident: Optional[str] = None
     title: str
     prompt: str
     points: int
