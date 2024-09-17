@@ -43,6 +43,8 @@ class Yaml2Xml:
         try:
             if not Utils.create_output_dirs("xml", self.cfg.output_dir_xml):
                 raise OSError(f"Failed to create output directory: {self.cfg.output_dir_xml}")
+            if not Utils.create_output_dirs("pdf", self.cfg.output_dir_pdf):
+                raise OSError(f"Failed to create output directory: {self.cfg.output_dir_pdf}")
             if not self.cfg.no_feedback_images:
                 if not Utils.create_output_dirs("png", self.cfg.output_dir_png):
                     raise OSError(f"Failed to create output directory: {self.cfg.output_dir_png}")

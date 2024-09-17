@@ -14,7 +14,7 @@ class Config(BaseSettings):
     from_format: Literal["pdf", "txt", "yaml", "xml", ] = Field(default="pdf", alias="from")
     to_format: Literal["pdf", "txt", "yaml", "xml", "quiz"] = Field(default="txt", alias="to")
     # vars
-    num_words_per_question: int = Field(default=100, alias='num_words')
+    num_words_per_question: int = Field(default=250, alias='num_words')
     no_feedback_images: bool = False
     # paths
 
@@ -28,6 +28,7 @@ class Config(BaseSettings):
     output_dir_yaml: str = "outputs/yaml"
     output_dir_xml: str = "outputs/xml"
     output_dir_png: str = "outputs/png"
+    output_dir_pdf: str = "outputs/pdf"
 
     platform: str = Field(default="openai")
     model: str = Field(default="undefined")

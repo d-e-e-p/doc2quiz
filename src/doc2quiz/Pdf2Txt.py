@@ -3,6 +3,8 @@
 #
 import sys
 from pypdf import PdfReader
+from prettytable import PrettyTable
+
 from .Utils import Utils
 
 
@@ -26,10 +28,20 @@ class Pdf2Txt:
             raise InputFileError(f"Invalid CSV file: {self.cfg.input_file_csv}")
         return True
 
-    def print_summary_table(self):
-        pass
+    def print_summary_table(self, res):
+        table = PrettyTable()
+        table.field_names = ["Chapter", "Pages", "Questions", "Title"]
+        table.align["Pages"] = "r"
+        table.align["Questions"] = "r"
+        table.align["Title"] = "l"
+        for row in res:
+            table.add_row(row)
+
+        print(f" number of words per question is {self.cfg.num_words_per_question}")
+        print(table)
 
     def extract_chapter_text_from_pdf(self):
+        res = []
         try:
             # Open the PDF file
             with open(self.cfg.input_file_pdf, 'rb') as pdf_file:
@@ -49,8 +61,13 @@ class Pdf2Txt:
                         text_file.write(f"{chapter} - {title} (pages {start_page + 1} to {end_page + 1})\n")
                         text_file.write(extracted_text)
                     print(f'Saved from p{start_page + 1} to p{end_page + 1} to {file_name}')
+                    num_pages = end_page - start_page + 1
+                    num_words = len(extracted_text.split())
+                    num_questions = round(num_words / self.cfg.num_words_per_question)
+                    res.append([chapter, num_pages, num_questions, title])
         except Exception as e:
             raise PdfExtractionError(f"Error extracting chapter text from PDF: {str(e)}")
+        return res
 
     def run(self):
         try:
@@ -58,8 +75,8 @@ class Pdf2Txt:
                 raise InputFileError("Invalid input files.")
             if not Utils.create_output_dirs("txt", self.cfg.output_dir_txt):
                 raise OSError(f"Failed to create output directory: {self.cfg.output_dir_txt}")
-            self.extract_chapter_text_from_pdf()
-            self.print_summary_table()
+            res = self.extract_chapter_text_from_pdf()
+            self.print_summary_table(res)
         except (InputFileError, PdfExtractionError, OSError) as e:
             print(f"Error: {e}")
             sys.exit(1)

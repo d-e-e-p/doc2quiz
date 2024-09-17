@@ -36,8 +36,16 @@ class Doc2Quiz:
         self.parser.add_argument('--no_feedback_images', action='store_true', 
                                  help="do not generate images of pdf for feedback on quiz questions")
         self.parser.add_argument('--num_words_per_question',
-                                 default='100',
+                                 default='200',
                                  help="determine th number of questions for a chapter based on this ratio")
+
+        self.parser.add_argument('--input_file_pdf',
+                                 default="inputs/pdf/book.pdf",
+                                 help="starting point input pdf")
+
+        self.parser.add_argument('--input_file_csv',
+                                 default="inputs/csv/toc.csv",
+                                 help="starting point csv with table of contents")
 
     def call_method_if_exists(self, method_name):
         if method_name in globals() and callable(globals()[method_name]):
@@ -74,6 +82,9 @@ class Doc2Quiz:
         self.cfg.model = args.model
         self.cfg.no_feedback_images = args.no_feedback_images
         self.cfg.num_words_per_question = int(args.num_words_per_question)
+
+        self.cfg.input_file_pdf = args.input_file_pdf
+        self.cfg.input_file_csv = args.input_file_csv
 
     def run(self):
         # Parse the arguments

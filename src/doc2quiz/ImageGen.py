@@ -6,6 +6,8 @@ import regex
 import math
 from collections import defaultdict
 from PIL import Image
+from neofuzz import char_ngram_process
+
 
 
 class ImageGen:
@@ -14,6 +16,8 @@ class ImageGen:
         self.start_page = start_page
         self.end_page = end_page
         self.chapter = chapter
+        self.debug_match = True
+        self.nprocess = None
 
     def merge_pages_to_single(self):
         doc = pymupdf.open(self.cfg.input_file_pdf)
@@ -53,12 +57,89 @@ class ImageGen:
 
         # Save the output
         doc.close()
-        if False:
-            output_pdf = "out.pdf"
-            new_pdf.save(output_pdf)
-            print(f"Composite PDF created and saved as '{output_pdf}'.")
+
         # need to new_pdf.close() later...
         return new_pdf
+
+    def find_and_search(self, concat_text, search_string):
+
+        threshold = 80
+
+        # find the closest matching sentence
+        # each sentence is a snippet of the same length as search string
+
+        n_chars = len(search_string)
+        n_chars_half = round(n_chars)
+        if self.nprocess is None:
+        # if True:
+            offset = 0
+            pieces = []
+            while offset < len(concat_text):
+                pieces.append(concat_text[offset:offset + n_chars_half])
+                offset += n_chars_half
+            sentences = [pieces[i] + pieces[i + 1] + pieces[i + 2] for i in range(len(pieces) - 2)]
+            self.nprocess = char_ngram_process()
+            self.nprocess.index(sentences)
+
+        best_match, similarity = self.nprocess.extractOne(search_string)
+
+        # match = process.extractOne(search_string, sentences, score_cutoff=threshold)
+
+        if self.debug_match:
+            print(f"------------")
+
+        if best_match:
+            if self.debug_match:
+                print(f"fm quote     : {search_string}")
+                print(f"fm Best match: {best_match}")
+                print(f"fm Similarity: {similarity}")
+            
+            # Find the starting index of the match in the original concat_text
+            find_idx = concat_text.find(best_match)
+            if self.debug_match:
+                print(f"fm find_idx = {find_idx}")
+            
+        else:
+            find_idx = -1
+            if self.debug_match:
+                print("No reasonable match found. Using the entire text.")
+
+        # create partial string and offset
+        if find_idx >= 0:
+            start_idx = find_idx
+            end_idx = find_idx + 3 * n_chars_half
+        else:
+            start_idx = 0
+            end_idx = len(concat_text)
+           
+        print(f"fm find_idx = {find_idx} so start_idx={start_idx} end end_idx={end_idx}")
+
+        # refine the search if regex_search if defined
+        no_regex_search = False
+        if no_regex_search and find_idx >= 0:
+            if self.debug_match:
+                partial_text = concat_text[start_idx:end_idx]
+                print(f"fm no_regex_search return partial_text = {partial_text}")
+            return start_idx, end_idx, 50
+
+        # else
+
+        if find_idx >= 0:
+            padding_chars = 100
+            start_idx = max(start_idx - padding_chars, 0)
+            end_idx = min(end_idx + padding_chars, len(concat_text))
+            if self.debug_match:
+                partial_text = concat_text[start_idx:end_idx]
+                print(f"ft regex_search using partial_text = {partial_text}")
+
+        partial_text = concat_text[start_idx:end_idx]
+        beg_loc, end_loc, num_err = self.find_approximate_match(
+                                                        partial_text, search_string)
+        if beg_loc is not None and end_loc is not None:
+            beg_loc += start_idx
+            end_loc += start_idx
+
+        return beg_loc, end_loc, num_err
 
     def find_approximate_match(self, concat_text, search_string):
         """
@@ -73,21 +154,41 @@ class ImageGen:
         Returns:
             (start_index, end_index, max_edits): A tuple with the start and end index of the match and the number of edits used.
         """
-        max_edits = 0
-        while True:
-            max_edits += 1
+        if self.debug_match:
+            print(f"find_approximate_match : looking for q={search_string}")
+            if len(concat_text) > 5000:
+                print("find_approximate_match: entire concat")
+            else:
+                print(f"find_approximate_match : target string={concat_text}")
+
+        max_edits = 15
+        edits = 0
+        while edits < max_edits:
             # Build the fuzzy search pattern with regex allowing for `max_edits` edits.
-            pattern = f"(?e)({regex.escape(search_string)}){{e<={max_edits}}}"
-            
-            # Search the entire concat_text for the pattern
+            pattern = f"(?e)({regex.escape(search_string)}){{e<={edits}}}"
+            edits += 1
+            if self.debug_match:
+                print(f" {edits} ", end="", flush=True)
             match = regex.search(pattern, concat_text)
-            
+
             if match:
                 # Return the start and end index of the match and the number of edits used
+                if self.debug_match:
+                    print(" ")
+                    print(f"find_approximate_match : found       q={match.group(0)}")
+                    print(f"find_approximate_match : done with {match.fuzzy_counts} total {sum(match.fuzzy_counts)}")
                 return match.start(), match.end(), sum(match.fuzzy_counts)
-        
-        # If no match is found after reaching max_allowed_edits, return None
+
+        # give up and return fuzzy search results
+        if len(concat_text) < 1000:
+            match_start = concat_text.find(search_string)
+            match_end = match_start + len(concat_text)
+            fuzzy_count = None
+            return match_start, match_end, fuzzy_count
+
+        # really give up
         return None, None, None
+        
 
     def find_matching_blocks(self, blocks, quotes):
 
@@ -119,7 +220,8 @@ class ImageGen:
         errors = {}
         for ident, ql in quotes.items():
             for quote in ql:
-                beg_loc, end_loc, num_err = self.find_approximate_match(concat_text, quote)
+                # beg_loc, end_loc, num_err = self.find_approximate_match(concat_text, quote)
+                beg_loc, end_loc, num_err = self.find_and_search(concat_text, quote)
                 errors[quote] = num_err
                 if beg_loc is not None and end_loc is not None:
                     for i, (beg_idx, end_idx) in block_number_map.items():
@@ -231,8 +333,6 @@ class ImageGen:
             # Update to the next annotation (because list changes after deletion)
             annot = page.first_annot
 
-        
-
     def save_block_images(self, matching_blocks, page, doc):
         """
         Highlights the text blocks in a PDF page, extracts the highlighted area,
@@ -287,13 +387,19 @@ class ImageGen:
             
         return quote_images
 
-    def generate(self, quotes):
+    def generate(self, quotes, chapter):
+        # save composite pdf
         doc = self.merge_pages_to_single()
+        output_pdf = f"{self.cfg.output_dir_pdf}/{chapter}.pdf"
+        doc.save(output_pdf)
+        print(f"Composite PDF saved as '{output_pdf}'.")
+
         page = doc[0]
         tpage = page.get_textpage()
         blocks = tpage.extractBLOCKS()
         matching_blocks = self.find_matching_blocks(blocks, quotes)
         quote_images = self.save_block_images(matching_blocks, page, doc)
+
         doc.close()
         return quote_images
 

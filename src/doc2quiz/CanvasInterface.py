@@ -5,6 +5,7 @@ import requests
 from canvasapi import Canvas
 from time import sleep
 from prettytable import PrettyTable
+from natsort import natsorted
 
 
 class CanvasInterface:
@@ -14,6 +15,7 @@ class CanvasInterface:
         self.course_id = os.getenv("CANVAS_COURSE_ID")
         self.check_env()
         self.canvas = Canvas(self.api_url, self.api_key)
+        self.check_authorization()
 
     def check_env(self):
         if not self.api_key:
@@ -22,6 +24,16 @@ class CanvasInterface:
         if not self.course_id:
             print("Missing CANVAS_COURSE_ID environment variable")
             sys.exit(1)
+
+    def check_authorization(self):
+        try:
+            # Try to get the current user to check if the API key is authorized
+            user = self.canvas.get_user('self')
+            print(f"Canvas API Key is authorized. Current user: {user}")
+            return True
+        except Exception as e:
+            print(f"Authorization failed: {e}")
+            return False
 
     def check_progress(self, progress_url):
         """Poll the progress URL and check the current state of the migration."""
@@ -190,7 +202,9 @@ class CanvasInterface:
                         current_folder = target_folder.create_folder(relative_path)
 
                 # Upload files
-                for file_name in files:
+                sorted_files = natsorted(files)
+                for file_name in sorted_files:
+
                     file_path = os.path.join(root, file_name)
                     print(f"Uploading {file_name} to '{current_folder.full_name}' : ", end="")
                     with open(file_path, 'rb') as file:

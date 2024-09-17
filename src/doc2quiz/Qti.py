@@ -62,7 +62,7 @@ class Qti:
             if item.quotes:
                 quotes[item.ident] = item.quotes
 
-        self.quote_images = self.image_gen.generate(quotes)
+        self.quote_images = self.image_gen.generate(quotes, self.chapter)
 
     def to_xml(self) -> str:
         # Create the root element with the necessary namespaces

@@ -5,14 +5,19 @@ import sys
 import os
 import yaml
 import json
+import backoff
 
 from .Utils import Utils
 from .ExampleYaml import example_yaml
 from .Quiz import Quiz
 
+import openai
+import anthropic
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, ValidationError
 from pydantic_yaml import parse_yaml_raw_as
+
+errors = (openai.RateLimitError)
 
 
 class Txt2Yaml:
@@ -39,8 +44,9 @@ class Txt2Yaml:
         else:
             return obj
 
-    def get_prompt(self, text):
-        num_questions = round(len(text) / self.cfg.num_words_per_question)
+    def get_initial_prompt(self, text):
+        num_words = len(text.split())
+        num_questions = round(num_words / self.cfg.num_words_per_question)
 
         if num_questions < 2:
             if len(text) < 100:
@@ -62,8 +68,13 @@ The questions should be of a mixture of the following types:
 
 short_answer_question should have a single word answer, with a list of potential correct answers
 each answer should be marked with points from 1 to 4 to indicate difficulty of question.
-quote is an excerpt from passage explaining the answer to the question. the quote should be exact
-including spaces and punctuation.
+quote is an excerpt from passage explaining the answer to the question.
+
+the quote field should be and exact quote from the text, eg "Carbohydrates, lipids, proteins, and
+nucleic acids are organic molecules with specific functions in cells." and not "Carbohydrates are
+organic molecules with specific functions in cells."
+
+the quote should preserve all the space and return characters to match the input passage exactly.
 
 An example of output showing different question types:
 
@@ -75,14 +86,37 @@ the passage:
 
 end of passage.
 """
+
+    def get_additional_prompt(self, res):
+
+        prompt = """
+
+the quote should be exactly matching passage. please generate the questions again with quotes that match passage
+letter by letter.
+
+        """
+        return prompt
+
+    # Define the function with backoff on rate limit errors
+    @backoff.on_exception(backoff.expo, errors, base=10, factor=2, max_tries=8)
+    def get_structured_llm_res(self, structured_llm, prompt):
+        try:
+            return structured_llm.invoke(prompt)
+        except errors as e:
+            print(f"Rate limit hit: {e}")
+            raise  # Reraise exception for backoff to handle
     
     def ask_questions_yaml(self, chapter, title, extracted_text):
 
-        prompt = self.get_prompt(extracted_text)
+        prompt = self.get_initial_prompt(extracted_text)
         model = ChatOpenAI(model=self.cfg.model, temperature=0)
         structured_llm = model.with_structured_output(Quiz, include_raw=True)
-        res = structured_llm.invoke(prompt)
+        res = self.get_structured_llm_res(structured_llm, prompt)
         if res['parsing_error'] is None:
+            prompt += f"your answer: {res}"
+            prompt += self.get_additional_prompt(res['parsed'])
+            res = self.get_structured_llm_res(structured_llm, prompt)
+
             out_parsed = self.remove_optional_nulls(res['parsed'])
             yaml_str = yaml.dump(out_parsed, sort_keys=False)
             out_from_yaml = parse_yaml_raw_as(Quiz, yaml_str)
