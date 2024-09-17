@@ -16,8 +16,12 @@ questions:
           explanation: feedback on getting B wrong
       explanation: general feedback on this problem
       quotes:
-          - A is A
-          - Term B is Definition B
+        - start_ptr: 21
+          end_ptr: 27
+          text: A is A
+        - start_ptr: 33
+          end_ptr: 39
+          text: B is B
 
 
     - type: multiple_answers
@@ -37,7 +41,12 @@ questions:
           explanation: CSS is a style sheet language.
       explanation: Python/Java are languages
       quotes:
-          - Python and Java are languages
+        - start_ptr: 99
+          end_ptr: 124
+          text: Python/Java are languages
+        - start_ptr: 150
+          end_ptr: 176
+          text: HTML/CSS are not languages
 
     - type: multiple_choice
       title: Capitals
@@ -55,7 +64,9 @@ questions:
           explanation: Bangkok is the capital of Thailand.
       explanation: Tokyo is the capital of Japan
       quotes:
-          - Tokyo   is the capital of Japan
+        - start_ptr: 181
+          end_ptr: 105
+          text: Japan's capital is Tokyo 
 
     - type: multiple_dropdowns
       title: Capitals
@@ -82,18 +93,22 @@ questions:
               explanation: Rome is incorrect.
       explanation: Berlin is capital of Germany
       quotes:
-          - The capital of India is Delhi
+        - start_ptr: 234
+          end_ptr: 262
+          text: Berlin is capital of Germany
 
     - type: short_answer
-      title: Cells
-      prompt: What is the process of cell division called?
-      points: 3
-      answers: 
-        - Mitosis
-        - mitos
-      explanation: Mitosis is where a single cell divides into two identical daughter cells.
+      title: Color
+      prompt: What is the opposite of black?
+      points: 1
+      answers:
+        - White
+        - white
+      explanation: Opposite of black is white
       quotes:
-          - When a single cell divides into two identical daughter cells, the process is called Mitosis
+        - start_ptr: 452
+          end_ptr: 481
+          text: black and white are opposites
 
     - type: true_false
       title: The Sun
@@ -102,5 +117,7 @@ questions:
       answer: false
       explanation: The sun rises in the east, not the west.
       quotes:
-          - Sun rises in east.
+        - start_ptr: 799
+          end_ptr: 820
+          text: Sun rises in the west
 """

@@ -5,24 +5,33 @@ from pydantic_yaml import parse_yaml_raw_as, to_yaml_str
 
 from typing import List, Optional
 
+
 class Pair(BaseModel):
     key: str
     value: str
     explanation: str
+
 
 class Option(BaseModel):
     option: str
     explanation: str
     answer: bool = False
 
+
 class DropdownOption(BaseModel):
     option: str
     explanation: str
     answer: bool = False
 
+
 class Dropdown(BaseModel):
     dropdown: str
     options: List[DropdownOption]
+
+class Quote(BaseModel):
+    start_ptr: int
+    end_ptr: int
+    text: str
 
 
 class Item(BaseModel):
@@ -37,7 +46,7 @@ class Item(BaseModel):
     answers: Optional[List[str]] = None
     answer: Optional[bool] = None
     explanation: str
-    quotes: List[str]
+    quotes: List[Quote]
 
     @field_validator('pairs', mode='before')
     def check_pairs(cls, v, info):
@@ -79,10 +88,12 @@ class Item(BaseModel):
             raise ValueError(f'{info.data["type"]} items should not have an answer')
         return v
 
+
 class Questions(BaseModel):
     title: Optional[str] = None
     ident: Optional[str] = None
     items: List[Item]
+
 
 class Quiz(BaseModel):
     questions: Questions
@@ -91,7 +102,7 @@ class Quiz(BaseModel):
 
 
 if __name__ == "__main__":
-    with open("inputs/yaml/example.yaml", 'r', encoding='utf-8') as file:
+    with open("inputs/yaml/example2.yaml", 'r', encoding='utf-8') as file:
         str = file.read()
     try:
         quiz = parse_yaml_raw_as(Quiz, str)

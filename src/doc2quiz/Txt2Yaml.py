@@ -68,33 +68,41 @@ The questions should be of a mixture of the following types:
 
 short_answer_question should have a single word answer, with a list of potential correct answers
 each answer should be marked with points from 1 to 4 to indicate difficulty of question.
-quote is an excerpt from passage explaining the answer to the question.
 
-the quote field should be and exact quote from the text, eg "Carbohydrates, lipids, proteins, and
-nucleic acids are organic molecules with specific functions in cells." and not "Carbohydrates are
-organic molecules with specific functions in cells."
-
-the quote should preserve all the space and return characters to match the input passage exactly.
+quotes are extracts from the passage that best explain the answer.
+the actual text of the quote is in the text field of eack quote
+the quote field has pointers to the start and end of segments of the passage and the text snippet.
+the start_ptr is exact number of characters from the start of the passage to the start of quote.
+the end_ptr is exact number of characters from the start of the passage to the end of quote.
+there must be at least one quote associated with the question.
 
 An example of output showing different question types:
 
 {self.example_json}
 
-the passage:
+the passage starts here ->
 
 {text}
 
-end of passage.
+<- end of passage.
 """
 
-    def get_additional_prompt(self, res):
+    def get_additional_prompt(self, text, res):
 
         prompt = """
+the quote should be a segment of passage that explains the answers.
+"""
+        quiz = res['parsed']
+        for item in quiz.questions.items:
+            print(f" prompt: {item.prompt}")
+            for quote in item.quotes:
+                prompt += f" quote:  {quote}"
+                prompt += f" quote_text  {text[quote.start_ptr:quote.end_ptr]}\n"
 
-the quote should be exactly matching passage. please generate the questions again with quotes that match passage
-letter by letter.
-
+        prompt += """
+please try generating questions again with correct quote markers
         """
+        print(f" try2 prompt = {prompt}")
         return prompt
 
     # Define the function with backoff on rate limit errors
@@ -113,8 +121,8 @@ letter by letter.
         structured_llm = model.with_structured_output(Quiz, include_raw=True)
         res = self.get_structured_llm_res(structured_llm, prompt)
         if res['parsing_error'] is None:
-            prompt += f"your answer: {res}"
-            prompt += self.get_additional_prompt(res['parsed'])
+            prompt+= "Your response was {res}"
+            prompt+= self.get_additional_prompt(extracted_text, res)
             res = self.get_structured_llm_res(structured_llm, prompt)
 
             out_parsed = self.remove_optional_nulls(res['parsed'])

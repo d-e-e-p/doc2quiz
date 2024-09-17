@@ -141,6 +141,47 @@ class ImageGen:
 
         return beg_loc, end_loc, num_err
 
+    def preprocess_text_to_match(self, text):
+        """
+        Removes all occurrences of ' -\n' from the given text and keeps track of positions.
+
+        Parameters:
+        text (str): The input text.
+
+        Returns:
+        tuple: A tuple containing the preprocessed text and a list of positions where ' -\n' was removed.
+        """
+        positions = []
+        preprocessed_text = ""
+        i = 0
+        while i < len(text):
+            if text[i:i+3] == " -\n":
+                positions.append(i)
+                i += 3
+            else:
+                preprocessed_text += text[i]
+                i += 1
+        return preprocessed_text, positions
+
+    def reinsert_hyphen_newline(self, text, positions, offset):
+        """
+        Re-inserts ' -\n' back into the text at the specified positions, adjusted for offset.
+
+        Parameters:
+        text (str): The input text.
+        positions (list): The list of positions where ' -\n' was removed.
+        offset (int): The offset to adjust positions.
+
+        Returns:
+        str: The text with ' -\n' re-inserted.
+        """
+        for pos in positions:
+            adjusted_pos = pos - offset
+            if 0 <= adjusted_pos < len(text):
+                text = text[:adjusted_pos] + " -\n" + text[adjusted_pos:]
+        return text
+
+
     def find_approximate_match(self, concat_text, search_string):
         """
         Find the approximate match of a search_string in concat_text using regex with fuzzy matching.
@@ -161,21 +202,26 @@ class ImageGen:
             else:
                 print(f"find_approximate_match : target string={concat_text}")
 
-        max_edits = 15
+        max_edits = 10
         edits = 0
+        preprocessed_text_to_match, positions = self.preprocess_text_to_match(concat_text)
         while edits < max_edits:
             # Build the fuzzy search pattern with regex allowing for `max_edits` edits.
-            pattern = f"(?e)({regex.escape(search_string)}){{e<={edits}}}"
+            pattern = f"(?e)(?i)({regex.escape(search_string)}){{e<={edits}}}"
             edits += 1
             if self.debug_match:
                 print(f" {edits} ", end="", flush=True)
-            match = regex.search(pattern, concat_text)
+            match = regex.search(pattern, preprocessed_text_to_match)
 
             if match:
+                # Re-insert ' -\n' back into the matched string
+                matched_string = match.group(0)
+                match_start = match.start(0)
+                reinserted_string = self.reinsert_hyphen_newline(matched_string, positions, match_start)
                 # Return the start and end index of the match and the number of edits used
                 if self.debug_match:
                     print(" ")
-                    print(f"find_approximate_match : found       q={match.group(0)}")
+                    print(f"find_approximate_match : found       q={matched_string}")
                     print(f"find_approximate_match : done with {match.fuzzy_counts} total {sum(match.fuzzy_counts)}")
                 return match.start(), match.end(), sum(match.fuzzy_counts)
 
@@ -189,7 +235,6 @@ class ImageGen:
         # really give up
         return None, None, None
         
-
     def find_matching_blocks(self, blocks, quotes):
 
         # Concatenate block texts with block numbers
@@ -217,12 +262,12 @@ class ImageGen:
         #   begg_idx>---------< end_idx
         #        beg_loc>---<end_loc
         matching_blocks = defaultdict(list)
-        errors = {}
+        quote_ptr_offset = 0
         for ident, ql in quotes.items():
             for quote in ql:
-                # beg_loc, end_loc, num_err = self.find_approximate_match(concat_text, quote)
-                beg_loc, end_loc, num_err = self.find_and_search(concat_text, quote)
-                errors[quote] = num_err
+                beg_loc, end_loc, num_err = self.find_and_search(concat_text, quote.text)
+                # beg_loc, end_loc = quote.start_ptr + quote_ptr_offset, quote.end_ptr + quote_ptr_offset
+                # print(f"\n------------------\nquote = {beg_loc}:{end_loc}")
                 if beg_loc is not None and end_loc is not None:
                     for i, (beg_idx, end_idx) in block_number_map.items():
                         case1 = beg_idx >= beg_loc and beg_idx <= end_loc
