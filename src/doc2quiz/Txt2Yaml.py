@@ -10,6 +10,7 @@ import backoff
 from .Utils import Utils
 from .ExampleYaml import example_yaml
 from .Quiz import Quiz
+from .Search import Search
 
 import openai
 import anthropic
@@ -24,6 +25,7 @@ class Txt2Yaml:
     def __init__(self, cfg):
         self.cfg = cfg
         self.example_json = self.gen_example_json()
+        self.search = None
 
     def gen_example_json(self):
         quiz_parsed = parse_yaml_raw_as(Quiz, example_yaml)
@@ -71,9 +73,6 @@ each answer should be marked with points from 1 to 4 to indicate difficulty of q
 
 quotes are extracts from the passage that best explain the answer.
 the actual text of the quote is in the text field of eack quote
-the quote field has pointers to the start and end of segments of the passage and the text snippet.
-the start_ptr is exact number of characters from the start of the passage to the start of quote.
-the end_ptr is exact number of characters from the start of the passage to the end of quote.
 there must be at least one quote associated with the question.
 
 An example of output showing different question types:
@@ -86,6 +85,16 @@ the passage starts here ->
 
 <- end of passage.
 """
+
+    def make_quotes_exact(self, quiz):
+        for item in quiz["questions"]["items"]:
+            print(f" prompt: {item['prompt']}")
+            for quote in item["quotes"]:
+                print(f" before: {quote['text']}")
+                quote["text"] = self.search.find_exact_quote(quote["text"])
+                print(f" after:  {quote['text']}")
+        return quiz
+
 
     def get_additional_prompt(self, text, res):
 
@@ -116,14 +125,17 @@ please try generating questions again with correct quote markers
     
     def ask_questions_yaml(self, chapter, title, extracted_text):
 
+        self.search = Search(self.cfg, extracted_text)
+
         prompt = self.get_initial_prompt(extracted_text)
         model = ChatOpenAI(model=self.cfg.model, temperature=0)
         structured_llm = model.with_structured_output(Quiz, include_raw=True)
         res = self.get_structured_llm_res(structured_llm, prompt)
         if res['parsing_error'] is None:
-            prompt+= "Your response was {res}"
-            prompt+= self.get_additional_prompt(extracted_text, res)
-            res = self.get_structured_llm_res(structured_llm, prompt)
+            if False:
+                prompt+= "Your response was {res}"
+                prompt+= self.get_additional_prompt(extracted_text, res)
+                res = self.get_structured_llm_res(structured_llm, prompt)
 
             out_parsed = self.remove_optional_nulls(res['parsed'])
             yaml_str = yaml.dump(out_parsed, sort_keys=False)
@@ -142,13 +154,15 @@ please try generating questions again with correct quote markers
                 if not isinstance(out_parsed['questions'], dict):
                     print(f"The 'questions' key is missing in {out_parsed}")
                     return None
+            # fix quotes
+            out_exact = self.make_quotes_exact(out_parsed)
 
             # ident has to be unique for all quiz in upload set
             title_yaml = f"{chapter} : {title}"
             ident_yaml = f"{chapter}-{self.cfg.platform}-{self.cfg.model}"
             out_edited = {'questions': {'title': title_yaml, 'ident': ident_yaml}}
-            out_edited['questions'].update(out_parsed['questions'])
-            yaml_str = yaml.dump(out_edited, sort_keys=False)
+            out_edited['questions'].update(out_exact['questions'])
+            yaml_str = yaml.dump(out_exact, sort_keys=False)
             return yaml_str
 
         else:
