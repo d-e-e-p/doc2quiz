@@ -124,15 +124,7 @@ class CanvasInterface:
 
             # Step 2: Get the destination folder (Uploaded Media) in the course
             print("Step 2: Locating 'Uploaded Media' folder...")
-            folders = course.get_folders()
-            uploaded_files_folder = None
-            for folder in folders:
-                if folder.full_name == "course files/Uploaded Media":
-                    uploaded_files_folder = folder
-                    break
-
-            if not uploaded_files_folder:
-                raise Exception("'Uploaded Media' folder not found in the course.")
+            uploaded_media_folder = self.get_uploaded_media_folder()
 
             # Step 3: Upload the file to the 'Uploaded Media' folder
             print(f"Step 3: Uploading {file_name} to 'Uploaded Media'...")
@@ -151,69 +143,84 @@ class CanvasInterface:
         except Exception as e:
             print(f"An error occurred: {e}")
 
-    def upload_img_dir(self, source_dir, root_dir):
+    def get_uploaded_media_folder(self):
+
+        course = self.canvas.get_course(self.course_id)
+        folders = course.get_folders()
+
+        uploaded_media_folder = next((f for f in folders if f.full_name == "course files/Uploaded Media"), None)
+        if not uploaded_media_folder:
+
+            parent_folder = next((f for f in folders if f.full_name == "course files"), None)
+
+            if parent_folder:
+
+                uploaded_media_folder = course.create_folder(name='Uploaded Media', parent_folder_id=parent_folder.id)
+                print(f"Folder 'Uploaded Media' created with ID: {uploaded_media_folder.id}")
+            else:
+                print("Error: Could not locate the 'course files' parent folder.")
+
+        if not uploaded_media_folder:
+            raise Exception("'Uploaded Media' folder not found in the course.")
+
+        return uploaded_media_folder
+
+    def upload_zipfile(self, zipfile):
         try:
             # Step 1: Get the course
             print("Step 1: Getting course...")
             course = self.canvas.get_course(self.course_id)
+            # available_migrators = course.get_migrators()
 
             # Step 2: Locate or create the 'Uploaded Media' directory in Canvas
             print("Step 2: Locating 'Uploaded Media' folder...")
-            folders = course.get_folders()
-            uploaded_media_folder = None
-            for folder in folders:
-                if folder.full_name == "course files/Uploaded Media":
-                    uploaded_media_folder = folder
-                    break
+            uploaded_media_folder = self.get_uploaded_media_folder()
 
-            if not uploaded_media_folder:
-                raise Exception("'Uploaded Media' folder not found in the course.")
+            # Step 3: Create a zip with a pre_attachment
+            file_name = os.path.basename(zipfile)
+            file_size = os.path.getsize(zipfile)
 
-            # Step 3: Create a subfolder under 'Uploaded Media' named after the extension (e.g., 'png')
-            print(f"Step 3: Creating/locating 'Uploaded Media/{root_dir}' folder...")
-            subfolder_name = f"Uploaded Media/{root_dir}"
-            target_folder = None
-            for folder in folders:
-                if folder.full_name == f"course files/{subfolder_name}":
-                    target_folder = folder
-                    break
+            # Upload png*zip files
+            content_migration = course.create_content_migration(
+                migration_type="zip_file_importer",
+                pre_attachment={
+                    "name": file_name,
+                    "size": file_size,
+                },
+                settings={
+                    "folder_id": uploaded_media_folder.id
+                }
+            )
 
-            if not target_folder:
-                print(f"Subfolder '{subfolder_name}' not found. Creating it...")
-                target_folder = uploaded_media_folder.create_folder(subfolder_name)
+            # Extract pre_attachment info for file upload
+            upload_info = content_migration.pre_attachment
+            upload_url = upload_info["upload_url"]
+            upload_params = upload_info["upload_params"]
 
-            # Step 4: Walk through the source directory and upload all files with the specified extension
-            print(f"Step 4: Uploading files from {source_dir} to 'Uploaded Media/{root_dir}'...")
-            for root, dirs, files in os.walk(source_dir):
-                relative_path = os.path.relpath(root, source_dir)
-                current_folder = target_folder
+            # print(f"Pre_attachment info received. Uploading file to {upload_url}...")
 
-                # Create subdirectories under 'png' in Canvas if needed
-                if relative_path != ".":
-                    subfolder_path = f"{subfolder_name}/{relative_path}"
-                    current_folder = None
-                    for folder in folders:
-                        if folder.full_name == f"course files/{subfolder_path}":
-                            current_folder = folder
-                            break
+            # Step 2: Upload the file using the upload URL and parameters
+            with open(zipfile, 'rb') as file:
+                files = {'file': file}
+                response = requests.post(upload_url, data=upload_params, files=files)
+                breakpoint()
 
-                    if not current_folder:
-                        print(f"Creating subfolder '{subfolder_path}'...")
-                        current_folder = target_folder.create_folder(relative_path)
+            if response.status_code != 201:
+                raise Exception(f"File upload failed: {response.text}")
 
-                # Upload files
-                sorted_files = natsorted(files)
-                for file_name in sorted_files:
+            print("File uploaded successfully.")
 
-                    file_path = os.path.join(root, file_name)
-                    print(f"Uploading {file_name} to '{current_folder.full_name}' : ", end="")
-                    with open(file_path, 'rb') as file:
-                        uploaded_file = current_folder.upload(file)
+            # Step 3: Get content migration to track progress
+            print("Step 3: Checking content migration status...")
+            content_migration = course.get_content_migration(content_migration.id)
 
-                    if not uploaded_file:
-                        print(f" File upload failed for {file_name}.")
-                    else:
-                        print(" ok")
+            progress_url = content_migration.progress_url
+            print(f"Progress URL: {progress_url}")
+
+            # Step 4: Monitor the progress using progress_url
+            print("Step 4: Monitoring the quiz import progress...")
+
+            self.check_progress(progress_url)
 
         except Exception as e:
             print(f"An error occurred: {e}")
@@ -250,6 +257,10 @@ def upload_canvas_images(source_dir, root_dir):
     canvas_interface = CanvasInterface()
     canvas_interface.upload_img_dir(source_dir, root_dir)
 
+
+def upload_canvas_zipfiles(zipfile):
+    canvas_interface = CanvasInterface()
+    canvas_interface.upload_zipfile(zipfile)
 
 if __name__ == "__main__":
     # Get environment variables
