@@ -16,12 +16,8 @@ questions:
           explanation: feedback on getting B wrong
       explanation: general feedback on this problem
       quotes:
-        - start_ptr: 21
-          end_ptr: 27
-          text: A is A
-        - start_ptr: 33
-          end_ptr: 39
-          text: B is B
+        - A is A
+        - B is B
 
 
     - type: multiple_answers
@@ -41,12 +37,8 @@ questions:
           explanation: CSS is a style sheet language.
       explanation: Python/Java are languages
       quotes:
-        - start_ptr: 99
-          end_ptr: 124
-          text: Python/Java are languages
-        - start_ptr: 150
-          end_ptr: 176
-          text: HTML/CSS are not languages
+        - Python/Java are languages
+        - HTML/CSS are not languages
 
     - type: multiple_choice
       title: Capitals
@@ -64,9 +56,7 @@ questions:
           explanation: Bangkok is the capital of Thailand.
       explanation: Tokyo is the capital of Japan
       quotes:
-        - start_ptr: 181
-          end_ptr: 105
-          text: Japan's capital is Tokyo 
+        - Japan's capital is Tokyo 
 
     - type: multiple_dropdowns
       title: Capitals
@@ -93,9 +83,7 @@ questions:
               explanation: Rome is incorrect.
       explanation: Berlin is capital of Germany
       quotes:
-        - start_ptr: 234
-          end_ptr: 262
-          text: Berlin is capital of Germany
+        - Berlin is capital of Germany
 
     - type: short_answer
       title: Color
@@ -106,9 +94,7 @@ questions:
         - white
       explanation: Opposite of black is white
       quotes:
-        - start_ptr: 452
-          end_ptr: 481
-          text: black and white are opposites
+        - black and white are opposites
 
     - type: true_false
       title: The Sun
@@ -117,7 +103,5 @@ questions:
       answer: false
       explanation: The sun rises in the east, not the west.
       quotes:
-        - start_ptr: 799
-          end_ptr: 820
-          text: Sun rises in the west
+        - Sun rises in the west
 """
