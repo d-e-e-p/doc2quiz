@@ -84,7 +84,7 @@ class Qti:
         fieldlabel = ET.SubElement(qtimetadatafield, "fieldlabel")
         fieldlabel.text = "cc_maxattempts"
         fieldentry = ET.SubElement(qtimetadatafield, "fieldentry")
-        fieldentry.text = "2"
+        fieldentry.text = "1"
 
         # Create the root section element
         # section = ET.SubElement(assessment, "section", ident="root_section")
@@ -175,6 +175,8 @@ class Qti:
 
         # Calculate points per correct answer
         num_correct_options = sum(option.answer for option in item.options)
+        if num_correct_options < 1:
+            breakpoint()
         points_per_correct = 100.0 / num_correct_options
 
         # Add conditions for correct answers
@@ -235,8 +237,9 @@ class Qti:
         if hasattr(item, 'quotes') and not self.cfg.no_feedback_images:
             if item.ident in self.quote_images:
                 mattext.text += "\n"
-                imgsrc = "$IMS-CC-FILEBASE$/Uploaded Media/png/" + self.quote_images[item.ident]
-                mattext.text += f"""<img src="{imgsrc}">\n"""
+                for imgname in self.quote_images[item.ident]:
+                    imgsrc = f"$IMS-CC-FILEBASE$/Uploaded Media/png/{imgname}"
+                    mattext.text += f"""<img src="{imgsrc}">\n"""
 
 
     def _handle_multiple_dropdowns_item(self, item, item_element):
