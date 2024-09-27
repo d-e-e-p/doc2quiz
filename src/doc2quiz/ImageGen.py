@@ -6,9 +6,7 @@ import regex
 import math
 from collections import defaultdict
 from PIL import Image
-from neofuzz import char_ngram_process
-
-
+from .Search import Search
 
 class ImageGen:
     def __init__(self, cfg, start_page, end_page, chapter):
@@ -18,6 +16,7 @@ class ImageGen:
         self.chapter = chapter
         self.debug_match = True
         self.nprocess = None
+        self.search = Search(self.cfg)
 
     def merge_pages_to_single(self):
         doc = pymupdf.open(self.cfg.input_file_pdf)
@@ -25,8 +24,15 @@ class ImageGen:
         epage = self.end_page
 
         # Check if the provided pages are within bounds
-        if spage < 0 or epage >= doc.page_count:
-            raise ValueError("Page numbers out of bounds.")
+        freak_out_about_page_ranges = False
+        if freak_out_about_page_ranges:
+            if spage < 0 or epage >= doc.page_count:
+                raise ValueError("Page numbers out of bounds.")
+        else:
+            if spage < 0:
+                spage = 0
+            if epage >= doc.page_count:
+                epage = doc.page_count - 1
 
         # Calculate total height required for the composite page
         total_height = 0
@@ -61,227 +67,6 @@ class ImageGen:
         # need to new_pdf.close() later...
         return new_pdf
 
-    def find_and_search(self, concat_text, search_string):
-
-        threshold = 80
-
-        # find the closest matching sentence
-        # each sentence is a snippet of the same length as search string
-
-        n_chars = len(search_string)
-        n_chars_half = round(n_chars)
-        if self.nprocess is None:
-        # if True:
-            offset = 0
-            pieces = []
-            while offset < len(concat_text):
-                pieces.append(concat_text[offset:offset + n_chars_half])
-                offset += n_chars_half
-            sentences = [pieces[i] + pieces[i + 1] + pieces[i + 2] for i in range(len(pieces) - 2)]
-            self.nprocess = char_ngram_process()
-            self.nprocess.index(sentences)
-
-        best_match, similarity = self.nprocess.extractOne(search_string)
-
-        # match = process.extractOne(search_string, sentences, score_cutoff=threshold)
-
-        if self.debug_match:
-            print(f"------------")
-
-        if best_match:
-            if self.debug_match:
-                print(f"fm quote     : {search_string}")
-                print(f"fm Best match: {best_match}")
-                print(f"fm Similarity: {similarity}")
-            
-            # Find the starting index of the match in the original concat_text
-            find_idx = concat_text.find(best_match)
-            if self.debug_match:
-                print(f"fm find_idx = {find_idx}")
-            
-        else:
-            find_idx = -1
-            if self.debug_match:
-                print("No reasonable match found. Using the entire text.")
-
-        # create partial string and offset
-        if find_idx >= 0:
-            start_idx = find_idx
-            end_idx = find_idx + 3 * n_chars_half
-        else:
-            start_idx = 0
-            end_idx = len(concat_text)
-           
-        print(f"fm find_idx = {find_idx} so start_idx={start_idx} end end_idx={end_idx}")
-
-        # refine the search if regex_search if defined
-        no_regex_search = False
-        if no_regex_search and find_idx >= 0:
-            if self.debug_match:
-                partial_text = concat_text[start_idx:end_idx]
-                print(f"fm no_regex_search return partial_text = {partial_text}")
-            return start_idx, end_idx, 50
-
-        # else
-
-        if find_idx >= 0:
-            padding_chars = 100
-            start_idx = max(start_idx - padding_chars, 0)
-            end_idx = min(end_idx + padding_chars, len(concat_text))
-            if self.debug_match:
-                partial_text = concat_text[start_idx:end_idx]
-                print(f"ft regex_search using partial_text = {partial_text}")
-
-        partial_text = concat_text[start_idx:end_idx]
-        beg_loc, end_loc, num_err = self.find_approximate_match(
-                                                        partial_text, search_string)
-        if beg_loc is not None and end_loc is not None:
-            beg_loc += start_idx
-            end_loc += start_idx
-
-        return beg_loc, end_loc, num_err
-
-    def preprocess_text_to_match(self, text):
-        """
-        Removes all occurrences of ' -\n' from the given text and keeps track of positions.
-
-        Parameters:
-        text (str): The input text.
-
-        Returns:
-        tuple: A tuple containing the preprocessed text and a list of positions where ' -\n' was removed.
-        """
-        positions = []
-        preprocessed_text = ""
-        i = 0
-        while i < len(text):
-            if text[i:i+3] == " -\n":
-                positions.append(i)
-                i += 3
-            else:
-                preprocessed_text += text[i]
-                i += 1
-        return preprocessed_text, positions
-
-    def reinsert_hyphen_newline(self, text, positions, offset):
-        """
-        Re-inserts ' -\n' back into the text at the specified positions, adjusted for offset.
-
-        Parameters:
-        text (str): The input text.
-        positions (list): The list of positions where ' -\n' was removed.
-        offset (int): The offset to adjust positions.
-
-        Returns:
-        str: The text with ' -\n' re-inserted.
-        """
-        for pos in positions:
-            adjusted_pos = pos - offset
-            if 0 <= adjusted_pos < len(text):
-                text = text[:adjusted_pos] + " -\n" + text[adjusted_pos:]
-        return text
-
-
-    def find_approximate_match(self, concat_text, search_string):
-        """
-        Find the approximate match of a search_string in concat_text using regex with fuzzy matching.
-        The function loops over max_edits from 0 upwards until a match is found.
-        
-        Parameters:
-            concat_text (str): The large text to search in.
-            search_string (str): The string to find approximately.
-            max_allowed_edits (int): The maximum number of edits to attempt before stopping.
-        
-        Returns:
-            (start_index, end_index, max_edits): A tuple with the start and end index of the match and the number of edits used.
-        """
-        if self.debug_match:
-            print(f"find_approximate_match : looking for q={search_string}")
-            if len(concat_text) > 5000:
-                print("find_approximate_match: entire concat")
-            else:
-                print(f"find_approximate_match : target string={concat_text}")
-
-        max_edits = 10
-        edits = 0
-        preprocessed_text_to_match, positions = self.preprocess_text_to_match(concat_text)
-        while edits < max_edits:
-            # Build the fuzzy search pattern with regex allowing for `max_edits` edits.
-            pattern = f"(?e)(?i)({regex.escape(search_string)}){{e<={edits}}}"
-            edits += 1
-            if self.debug_match:
-                print(f" {edits} ", end="", flush=True)
-            match = regex.search(pattern, preprocessed_text_to_match)
-
-            if match:
-                # Re-insert ' -\n' back into the matched string
-                matched_string = match.group(0)
-                match_start = match.start(0)
-                reinserted_string = self.reinsert_hyphen_newline(matched_string, positions, match_start)
-                # Return the start and end index of the match and the number of edits used
-                if self.debug_match:
-                    print(" ")
-                    print(f"find_approximate_match : found       q={matched_string}")
-                    print(f"find_approximate_match : done with {match.fuzzy_counts} total {sum(match.fuzzy_counts)}")
-                return match.start(), match.end(), sum(match.fuzzy_counts)
-
-        # give up and return fuzzy search results
-        if len(concat_text) < 1000:
-            match_start = concat_text.find(search_string)
-            match_end = match_start + len(concat_text)
-            fuzzy_count = None
-            return match_start, match_end, fuzzy_count
-
-        # really give up
-        return None, None, None
-        
-    def find_matching_blocks(self, blocks, quotes):
-
-        # Concatenate block texts with block numbers
-        concat_text = ""
-        block_number_map = {}
-        for i, block in enumerate(blocks):
-            x0, y0, x1, y1, block_text, block_no, block_type = block
-            if block_type == 1:     # image block
-                continue
-            beg_idx = len(concat_text) - 1
-            end_idx = beg_idx + len(block_text)
-            concat_text += block_text + " "
-            block_number_map[i] = (beg_idx, end_idx)
-
-        # ok, now look for each quote
-        # idx is for each block
-        # loc is matched locations.
-        # case1:
-        #       beg_idx >---------
-        #   beg_loc>----------<end_loc
-        # case2:
-        #       ---------< end_idx
-        #   beg_loc>----------<end_loc
-        # case3:
-        #   begg_idx>---------< end_idx
-        #        beg_loc>---<end_loc
-        matching_blocks = defaultdict(list)
-        quote_ptr_offset = 0
-        for ident, ql in quotes.items():
-            for quote in ql:
-                beg_loc, end_loc, num_err = self.find_and_search(concat_text, quote.text)
-                # beg_loc, end_loc = quote.start_ptr + quote_ptr_offset, quote.end_ptr + quote_ptr_offset
-                # print(f"\n------------------\nquote = {beg_loc}:{end_loc}")
-                if beg_loc is not None and end_loc is not None:
-                    for i, (beg_idx, end_idx) in block_number_map.items():
-                        case1 = beg_idx >= beg_loc and beg_idx <= end_loc
-                        case2 = end_idx >= beg_loc and end_idx <= end_loc
-                        case3 = beg_idx <= beg_loc and end_idx >= end_loc
-                        if case1 or case2 or case3:
-                            matching_blocks[ident].append(blocks[i][:4])
-                        # if regex.match("Theodor Schwann",quote):
-                        #    print(f"{beg_idx} v {beg_loc} and e={end_idx} v {end_loc} : {case1} {case2} {case3}")
-        for ident, ql in quotes.items():
-            if not matching_blocks[ident]:
-                print(f" missing image for {ql}")
-        return matching_blocks
-
     def scale_bounding_rect(self, bounding_rect, scale_factor):
         """
         Scale the size of the bounding rectangle in all directions by a specified factor.
@@ -304,8 +89,8 @@ class ImageGen:
 
         # Create the new scaled rectangle by expanding or shrinking equally from the center
         new_rect = pymupdf.Rect(
-            center_x - new_width / 2,   # new x0
-            center_y - new_height / 2,  # new y0
+            max(0, center_x - new_width / 2),   # new x0
+            max(0, center_y - new_height / 2),  # new y0
             center_x + new_width / 2,   # new x1
             center_y + new_height / 2   # new y1
         )
@@ -366,7 +151,7 @@ class ImageGen:
             
             # Draw the combined rectangle on the page
             scaled_rect = self.scale_bounding_rect(combined_rect, 1.1)
-            page.draw_rect(scaled_rect, color=(1, 0, 0), width=2, radius=0.1)
+            page.draw_rect(scaled_rect, color=(0, 0, 1), width=2, radius=0.1)
 
     def delete_all_annot(self, page):
         annot = page.first_annot
@@ -378,57 +163,132 @@ class ImageGen:
             # Update to the next annotation (because list changes after deletion)
             annot = page.first_annot
 
-    def save_block_images(self, matching_blocks, page, doc):
+    def save_highlight_images(self, quotes, page, doc):
         """
         Highlights the text blocks in a PDF page, extracts the highlighted area,
         zooms out by 2x, and saves the resulting image.
         """
         highlight_text_box = False
         
-        quote_images = {}
+        quote_images = defaultdict(list)
 
         # Set the scale factor for zooming out (2x zoom out means scaling to 50%)
         zoom_out_scale = 10
         counter = 0
-        num_blocks = len(matching_blocks)
+
+        padding_width = 2
+
+        # Iterate over the matching quotes and their blocks
+        for ident, ql in quotes.items():
+            for search_string in ql:
+                # create temp copy of pdf for markup
+                tmp_doc = pymupdf.open()
+                # tmp_doc.delete_page(0)
+                tmp_page = tmp_doc.new_page(width=page.rect.width, height=page.rect.height)
+                tmp_page.show_pdf_page(page.rect, doc)
+
+                rects = page.search_for(search_string, quads=False)
+
+                if not rects:
+                    breakpoint()
+
+                for rect in rects:
+                    tmp_page.add_highlight_annot(rect)
+
+                bounding_rect = pymupdf.Rect()
+                for rect in rects:
+                    hilight_rect = pymupdf.Rect(rect)  # Get the block rectangle
+                    bounding_rect |= hilight_rect    # Union with the overall bounding box
+
+                # Create a 2D transformation matrix to zoom the page out (scaling down)
+                mat = pymupdf.Matrix(zoom_out_scale, zoom_out_scale)
+                
+                # Render the entire page as a pixmap (image)
+                double_bounding_rect = self.scale_bounding_rect(bounding_rect, 2.0)
+                double_bounding_rect = double_bounding_rect & page.rect
+                pix = tmp_page.get_pixmap(matrix=mat, clip=double_bounding_rect)  #
+                image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                counter += 1
+                imgname = f"{self.chapter}/img{counter:0{padding_width}}.png"
+                output_file = f"{self.cfg.output_dir_png}/{imgname}"
+                dirname = os.path.dirname(output_file)
+                os.makedirs(dirname, exist_ok=True)
+                image.save(output_file)
+                quote_images[ident].append(imgname)
+                # self.delete_all_annot(tmp_page)
+                tmp_doc.close()
+            
+        return quote_images
+
+    def save_block_images(self, matching_blocks, page, doc):
+        """
+        Highlights the text blocks in a PDF page, extracts the highlighted area,
+        zooms out by 2x, and saves the resulting image.
+        """
+        highlight_text_box = False
+
+        print("save_block_images:")
+        
+        quote_images = defaultdict(list)
+
+        # Set the scale factor for zooming out (2x zoom out means scaling to 50%)
+        zoom_out_scale = 5
+        counter = 0
+        num_blocks = sum(len(values) for values in matching_blocks.values())
         if num_blocks:
             padding_width = math.ceil(math.log10(num_blocks + 1))
 
+
         # Iterate over the matching quotes and their blocks
-        for ident, blocks in matching_blocks.items():
+        for ident, block_lol in matching_blocks.items():
+            for blocks in block_lol:
+                # create temp copy of pdf for markup
+                tmp_doc = pymupdf.open()
+                # tmp_doc.delete_page(0)
+                tmp_page = tmp_doc.new_page(width=page.rect.width, height=page.rect.height)
+                tmp_page.show_pdf_page(page.rect, doc)
 
-            # create temp copy of pdf for markup
-            tmp_doc = pymupdf.open()
-            # tmp_doc.delete_page(0)
-            tmp_page = tmp_doc.new_page(width=page.rect.width, height=page.rect.height)
-            tmp_page.show_pdf_page(page.rect, doc)
+                if highlight_text_box:
+                    tmp_page.add_highlight_annot(blocks)
+                self.mark_intersecting_blocks(blocks, tmp_page)
 
-            if highlight_text_box:
-                tmp_page.add_highlight_annot(blocks)
-            self.mark_intersecting_blocks(blocks, tmp_page)
-
-            # Calculate the bounding box that surrounds all the blocks
-            bounding_rect = pymupdf.Rect()
-            for block in blocks:
-                block_rect = pymupdf.Rect(block)  # Get the block rectangle
-                bounding_rect |= block_rect    # Union with the overall bounding box
+                # Calculate the bounding box that surrounds all the blocks
+                # Calculate the bounding box that surrounds all the blocks
+                bounding_rect = pymupdf.Rect()
+                for block in blocks:
+                    block_rect = pymupdf.Rect(block)  # Get the block rectangle
+                    bounding_rect |= block_rect    # Union with the overall bounding box
             
-            # Create a 2D transformation matrix to zoom the page out (scaling down)
-            mat = pymupdf.Matrix(zoom_out_scale, zoom_out_scale)
-            
-            # Render the entire page as a pixmap (image)
-            double_bounding_rect = self.scale_bounding_rect(bounding_rect, 2.0)
-            pix = tmp_page.get_pixmap(matrix=mat, clip=double_bounding_rect)  #
-            image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-            counter += 1
-            imgname = f"{self.chapter}/img{counter:0{padding_width}}.png"
-            output_file = f"{self.cfg.output_dir_png}/{imgname}"
-            dirname = os.path.dirname(output_file)
-            os.makedirs(dirname, exist_ok=True)
-            image.save(output_file)
-            quote_images[ident] = imgname
-            # self.delete_all_annot(tmp_page)
-            tmp_doc.close()
+                # Create a 2D transformation matrix to zoom the page out (scaling down)
+                mat = pymupdf.Matrix(zoom_out_scale, zoom_out_scale)
+                
+                # Render the entire page as a pixmap (image)
+                imgname = f"{self.chapter}/img{counter:0{padding_width}}.png"
+
+                double_bounding_rect = self.scale_bounding_rect(bounding_rect, 2.0)
+                double_bounding_rect = double_bounding_rect & page.rect
+                pix = tmp_page.get_pixmap(matrix=mat, clip=double_bounding_rect)  #
+
+                try:
+                    # Attempt to create an image from raw data
+                    image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    print(f" image {imgname} {pix.width} x {pix.height}")
+                    counter += 1
+                    output_file = f"{self.cfg.output_dir_png}/{imgname}"
+                    dirname = os.path.dirname(output_file)
+                    os.makedirs(dirname, exist_ok=True)
+                    image.save(output_file)
+                    quote_images[ident].append(imgname)
+                    
+                except ValueError as e:
+                    print(f"Error creating image from pixmap: {e}")
+
+                except Exception as e:
+                    print(f"An unexpected error occurred: {e}")
+
+
+                # self.delete_all_annot(tmp_page)
+                tmp_doc.close()
             
         return quote_images
 
@@ -442,10 +302,12 @@ class ImageGen:
         page = doc[0]
         tpage = page.get_textpage()
         blocks = tpage.extractBLOCKS()
-        matching_blocks = self.find_matching_blocks(blocks, quotes)
+        matching_blocks = self.search.find_matching_blocks(blocks, quotes)
         quote_images = self.save_block_images(matching_blocks, page, doc)
+        # quote_images = self.save_highlight_images(quotes, page, doc)
 
         doc.close()
+        print("done with imagegen")
         return quote_images
 
 
