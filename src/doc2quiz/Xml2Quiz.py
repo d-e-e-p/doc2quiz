@@ -4,7 +4,8 @@
 import sys
 import os
 import zipfile
-from .CanvasInterface import upload_canvas_quiz, upload_canvas_images
+from pathlib import Path
+from .CanvasInterface import upload_canvas_quiz, upload_canvas_images, upload_canvas_zipfiles
 from .Utils import Utils
 
 
@@ -12,11 +13,24 @@ class Xml2Quiz:
     def __init__(self, cfg):
         self.cfg = cfg
 
-    def process_qti(self):
+    def process_qti_and_images(self):
         if not self.cfg.no_feedback_images:
-            upload_canvas_images(self.cfg.output_dir_png, "png")
-        qti_file_path = "outputs/xml.zip"
-        self.zip_dir(self.cfg.output_dir_xml, qti_file_path)
+            # create separate zip files for each chapter
+            lines = Utils.read_toc_csv(self.cfg.input_file_csv)
+            files_to_upload = []
+            for start_page, end_page, chapter, title in lines:
+                png_dirname = str(Path(self.cfg.output_dir_png, chapter))
+                if os.path.isdir(png_dirname):
+                    png_zipfile = str(Path(self.cfg.output_dir_zip, f"{chapter}_png.zip"))
+                    parent_dir = os.path.dirname(self.cfg.output_dir_png)
+                    self.zip_dir(parent_dir, png_dirname, png_zipfile)
+                    files_to_upload.append(png_zipfile)
+
+            for file in files_to_upload:
+                upload_canvas_zipfiles(file)
+                    
+        qti_file_path = str(Path(self.cfg.output_dir_zip, "xml.zip"))
+        self.zip_dir(self.cfg.output_dir_zip, self.cfg.output_dir_xml, qti_file_path)
         upload_canvas_quiz(qti_file_path)
             
     # Zip the xml files
@@ -36,7 +50,7 @@ class Xml2Quiz:
             print(f"An error occurred while creating the zip file: {str(e)}")
             return None
 
-    def zip_dir(self, dir_path, output_filename):
+    def zip_dir(self, parent, dir_path, output_filename):
         if not output_filename.endswith('.zip'):
             output_filename += '.zip'
 
@@ -49,7 +63,7 @@ class Xml2Quiz:
                     for file in files:
                         file_path = os.path.join(root, file)
                         # Write the file to the zip file with a relative path
-                        zipf.write(file_path, os.path.relpath(file_path, dir_path))
+                        zipf.write(file_path, os.path.relpath(file_path, parent))
             print(f"Zip file created successfully: {output_filename}")
             return output_filename
         except Exception as e:
@@ -58,6 +72,8 @@ class Xml2Quiz:
 
     def check_files(self):
         try:
+            if not Utils.create_output_dirs("zip", self.cfg.output_dir_zip):
+                raise OSError(f"Failed to create output directory: {self.cfg.output_dir_zip}")
             if not Utils.check_files_in_dir(".xml", self.cfg.output_dir_xml):
                 raise OSError(f"output xml directory: {self.cfg.output_dir_xml}")
         except (OSError) as e:
@@ -66,7 +82,7 @@ class Xml2Quiz:
 
     def run(self):
         self.check_files()
-        self.process_qti()
+        self.process_qti_and_images()
 
 
 def xml_to_quiz(cfg):
