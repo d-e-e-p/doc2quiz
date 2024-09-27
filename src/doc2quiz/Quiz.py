@@ -9,7 +9,7 @@ from typing import List, Optional
 class Pair(BaseModel):
     key: str
     value: str
-    explanation: str
+    explanation: Optional[str] = None
 
 
 class Option(BaseModel):
@@ -28,11 +28,6 @@ class Dropdown(BaseModel):
     dropdown: str
     options: List[DropdownOption]
 
-class Quote(BaseModel):
-    start_ptr: int
-    end_ptr: int
-    text: str
-
 
 class Item(BaseModel):
     type: str
@@ -46,7 +41,7 @@ class Item(BaseModel):
     answers: Optional[List[str]] = None
     answer: Optional[bool] = None
     explanation: str
-    quotes: List[Quote]
+    quotes: List[str]
 
     @field_validator('pairs', mode='before')
     def check_pairs(cls, v, info):
@@ -58,10 +53,19 @@ class Item(BaseModel):
 
     @field_validator('options', mode='before')
     def check_options(cls, v, info):
-        if info.data['type'] in ['multiple_choice', 'multiple_answers'] and (v is None or len(v) == 0):
-            raise ValueError(f'{info.data["type"]} items must have non-empty options')
-        if info.data['type'] not in ['multiple_choice', 'multiple_answers'] and v is not None:
-            raise ValueError(f'{info.data["type"]} items should not have options')
+        item_type = info.data['type']
+        if item_type in ['multiple_choice', 'multiple_answers']:
+            if v is None or len(v) == 0:
+                raise ValueError(f'{item_type} items must have non-empty options')
+            correct_answers = 0
+            for option in v:
+                if 'answer' in option:
+                    if option['answer']:
+                        correct_answers += 1
+            if item_type == 'multiple_choice' and correct_answers != 1:
+                raise ValueError('multiple_choice items must have exactly one correct answer')
+        elif v is not None:
+            raise ValueError(f'{item_type} items should not have options')
         return v
 
     @field_validator('dropdowns', mode='before')
