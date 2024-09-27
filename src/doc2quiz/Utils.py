@@ -29,6 +29,7 @@ class Config(BaseSettings):
     output_dir_xml: str = "outputs/xml"
     output_dir_png: str = "outputs/png"
     output_dir_pdf: str = "outputs/pdf"
+    output_dir_zip: str = "outputs/zip"
 
     platform: str = Field(default="openai")
     model: str = Field(default="undefined")
