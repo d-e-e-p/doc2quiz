@@ -46,6 +46,57 @@ class Txt2Yaml:
         else:
             return obj
 
+    def get_seed_question_prompt(self, text):
+
+        seed_q_file = "inputs/txt/ch09p0.txt"
+        with open(seed_q_file, 'r', encoding='utf-8') as file:
+            seed_questions = file.read()
+
+        return f"""
+You are to convert 50 questions about a passage into structured format.
+The questions can be of a mixture of the following types:
+
+    matching
+    multiple_answers
+    multiple_choice
+    multiple_dropdowns
+    short_answer
+    true_false
+
+short_answer_question should have a single word answer, with a list of potential correct answers
+each answer should be marked with points from 1 to 4 to indicate difficulty of question.
+
+quotes are extracts from the passage that best explain the answer.
+the actual text of the quote is in the text field of eack quote
+there must be at least one quote associated with the question.
+
+An example of output showing different question types:
+
+{self.example_json}
+
+Convert all 50 questions. The 50 questions to convert are:
+
+{seed_questions}
+
+the passage starts here ->
+
+{text}
+
+<- end of passage.
+"""
+
+    def get_additional_seed_prompt(self, text, res):
+
+        quiz = res['parsed']
+        num_questions = len(quiz.questions.items)
+
+        prompt = """
+only {num_questions} questions were converted
+
+please try generating questions again, but this time convert all 50 questions
+        """
+        return prompt
+
     def get_initial_prompt(self, text):
         num_words = len(text.split())
         num_questions = round(num_words / self.cfg.num_words_per_question)
@@ -89,12 +140,13 @@ the passage starts here ->
     def make_quotes_exact(self, quiz):
         for item in quiz["questions"]["items"]:
             print(f" prompt: {item['prompt']}")
+            exact_quotes = []
             for quote in item["quotes"]:
-                print(f" before: {quote['text']}")
-                quote["text"] = self.search.find_exact_quote(quote["text"])
-                print(f" after:  {quote['text']}")
+                print(f" before: {quote}")
+                exact_quotes.append(self.search.find_exact_quote(quote))
+                print(f" after:  {quote}")
+            item["quotes"] = exact_quotes
         return quiz
-
 
     def get_additional_prompt(self, text, res):
 
@@ -127,14 +179,15 @@ please try generating questions again with correct quote markers
 
         self.search = Search(self.cfg, extracted_text)
 
-        prompt = self.get_initial_prompt(extracted_text)
+        # prompt = self.get_initial_prompt(extracted_text)
+        prompt = self.get_seed_question_prompt(extracted_text)
         model = ChatOpenAI(model=self.cfg.model, temperature=0)
         structured_llm = model.with_structured_output(Quiz, include_raw=True)
         res = self.get_structured_llm_res(structured_llm, prompt)
         if res['parsing_error'] is None:
             if False:
                 prompt+= "Your response was {res}"
-                prompt+= self.get_additional_prompt(extracted_text, res)
+                prompt+= self.get_additional_seed_prompt(extracted_text, res)
                 res = self.get_structured_llm_res(structured_llm, prompt)
 
             out_parsed = self.remove_optional_nulls(res['parsed'])
@@ -162,7 +215,7 @@ please try generating questions again with correct quote markers
             ident_yaml = f"{chapter}-{self.cfg.platform}-{self.cfg.model}"
             out_edited = {'questions': {'title': title_yaml, 'ident': ident_yaml}}
             out_edited['questions'].update(out_exact['questions'])
-            yaml_str = yaml.dump(out_exact, sort_keys=False)
+            yaml_str = yaml.dump(out_edited, sort_keys=False)
             return yaml_str
 
         else:
