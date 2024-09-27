@@ -2,10 +2,11 @@
 import regex
 import wordninja
 import string
+from collections import defaultdict
 from neofuzz import char_ngram_process
 from neofuzz import Process
 from sklearn.feature_extraction.text import TfidfVectorizer
-from collections import defaultdict
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # from prettytable import PrettyTable
 
@@ -17,34 +18,38 @@ class Search:
         self.debug_match = True
         self.nprocess = None
 
+    def setup_nprocess(self):
+         min_chunk_size = 200
+         chunk_size = max(1.3 * n_chars, min_chunk_size)
+         text_splitter = RecursiveCharacterTextSplitter(
+             chunk_size=chunk_size,
+             chunk_overlap=chunk_size / 2,
+             length_function=len,
+             is_separator_regex=False,
+         )
+         docs = text_splitter.create_documents([concat_text])
+         sentences = [doc.page_content for doc in docs]
+
+         self.nprocess = char_ngram_process()
+         vectorizer = TfidfVectorizer()
+         self.nprocess = Process(vectorizer, metric="cosine")
+         self.nprocess.index(sentences)
+
     def find_fuzzy_and_regex(self, ident, concat_text, search_string):
         """
         find the closest matching sentence
         each sentence is a snippet of the same length as search string
         """
         threshold = 15
-
         n_chars = len(search_string)
-        n_chars_half = round(n_chars)
-        if self.nprocess is None:
-        # if True:
-            offset = 0
-            pieces = []
-            while offset < len(concat_text):
-                pieces.append(concat_text[offset:offset + n_chars_half])
-                offset += n_chars_half
-            sentences = [pieces[i] + pieces[i + 1] + pieces[i + 2] for i in range(len(pieces) - 2)]
-            self.nprocess = char_ngram_process()
-            vectorizer = TfidfVectorizer()
-            self.nprocess = Process(vectorizer, metric="cosine")
-            self.nprocess.index(sentences)
 
+        # first time
+        if self.nprocess is None:
+            self.setup_nprocess()
         best_match, similarity = self.nprocess.extractOne(search_string)
 
-        # match = process.extractOne(search_string, sentences, score_cutoff=threshold)
-
         if self.debug_match:
-            print(f"------------")
+            print("------------")
 
         if self.debug_match:
             print(f"fm quote     {ident} : {search_string}")
@@ -54,8 +59,6 @@ class Search:
         if best_match and similarity > threshold:
             # Find the starting index of the match in the original concat_text
             find_idx = concat_text.find(best_match)
-            if self.debug_match:
-                print(f"fm find_idx = {find_idx}")
         else:
             find_idx = -1
             if self.debug_match:
@@ -63,8 +66,8 @@ class Search:
 
         # create partial string and offset
         if find_idx >= 0:
-            start_idx = find_idx
-            end_idx = find_idx + 3 * n_chars_half
+            start_idx = round(find_idx - 0.5 * n_chars)
+            end_idx = round(find_idx + 1.5 * n_chars)
         else:
             start_idx = 0
             end_idx = len(concat_text)
@@ -79,7 +82,7 @@ class Search:
                 print(f"fm no_regex_search return partial_text = {partial_text}")
             return start_idx, end_idx, 50
 
-        # else
+        # do regex search
         if find_idx >= 0:
             padding_chars = 100
             start_idx = max(start_idx - padding_chars, 0)
@@ -89,7 +92,7 @@ class Search:
                 print(f"ft regex_search using partial_text = {partial_text}")
 
         partial_text = concat_text[start_idx:end_idx]
-        beg_loc, end_loc, num_err = self.find_regex( partial_text, search_string)
+        beg_loc, end_loc, num_err = self.find_regex(partial_text, search_string)
         if beg_loc is not None and end_loc is not None:
             beg_loc += start_idx
             end_loc += start_idx
