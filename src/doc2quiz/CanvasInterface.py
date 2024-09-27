@@ -186,6 +186,7 @@ class CanvasInterface:
                 pre_attachment={
                     "name": file_name,
                     "size": file_size,
+                    "content_type": "application/zip",
                 },
                 settings={
                     "folder_id": uploaded_media_folder.id
@@ -203,7 +204,6 @@ class CanvasInterface:
             with open(zipfile, 'rb') as file:
                 files = {'file': file}
                 response = requests.post(upload_url, data=upload_params, files=files)
-                breakpoint()
 
             if response.status_code != 201:
                 raise Exception(f"File upload failed: {response.text}")
@@ -264,4 +264,4 @@ def upload_canvas_zipfiles(zipfile):
 
 if __name__ == "__main__":
     # Get environment variables
-    upload_canvas_quiz("outputs/xml.zip")
+    upload_canvas_zipfiles("outputs/xml.zip")
