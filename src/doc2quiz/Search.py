@@ -18,7 +18,7 @@ class Search:
         self.debug_match = True
         self.nprocess = None
 
-    def setup_nprocess(self):
+    def setup_nprocess(self, n_chars, passage):
          min_chunk_size = 200
          chunk_size = max(1.3 * n_chars, min_chunk_size)
          text_splitter = RecursiveCharacterTextSplitter(
@@ -27,7 +27,7 @@ class Search:
              length_function=len,
              is_separator_regex=False,
          )
-         docs = text_splitter.create_documents([concat_text])
+         docs = text_splitter.create_documents([passage])
          sentences = [doc.page_content for doc in docs]
 
          self.nprocess = char_ngram_process()
@@ -35,7 +35,7 @@ class Search:
          self.nprocess = Process(vectorizer, metric="cosine")
          self.nprocess.index(sentences)
 
-    def find_fuzzy_and_regex(self, ident, concat_text, search_string):
+    def find_fuzzy_and_regex(self, ident, passage, search_string):
         """
         find the closest matching sentence
         each sentence is a snippet of the same length as search string
@@ -43,22 +43,18 @@ class Search:
         threshold = 15
         n_chars = len(search_string)
 
-        # first time
-        if self.nprocess is None:
-            self.setup_nprocess()
+        self.setup_nprocess(n_chars, passage)
         best_match, similarity = self.nprocess.extractOne(search_string)
 
         if self.debug_match:
             print("------------")
-
-        if self.debug_match:
-            print(f"fm quote     {ident} : {search_string}")
+            print(f"fm quote      {ident} : {search_string}")
             print(f"fm Best match {ident}: {best_match}")
             print(f"fm Similarity:{ident}: {similarity}")
 
         if best_match and similarity > threshold:
-            # Find the starting index of the match in the original concat_text
-            find_idx = concat_text.find(best_match)
+            # Find the starting index of the match in the original passage
+            find_idx = passage.find(best_match)
         else:
             find_idx = -1
             if self.debug_match:
@@ -66,11 +62,11 @@ class Search:
 
         # create partial string and offset
         if find_idx >= 0:
-            start_idx = round(find_idx - 0.5 * n_chars)
-            end_idx = round(find_idx + 1.5 * n_chars)
+            start_idx = find_idx
+            end_idx = find_idx + n_chars
         else:
             start_idx = 0
-            end_idx = len(concat_text)
+            end_idx = len(passage)
            
         print(f"fm find_idx = {find_idx} so start_idx={start_idx} end end_idx={end_idx}")
 
@@ -78,20 +74,20 @@ class Search:
         no_regex_search = False
         if no_regex_search and find_idx >= 0:
             if self.debug_match:
-                partial_text = concat_text[start_idx:end_idx]
-                print(f"fm no_regex_search return partial_text = {partial_text}")
+                partial_text = passage[start_idx:end_idx]
+                print(f"fm no_regex_search so return  partial text match = {partial_text}")
             return start_idx, end_idx, 50
 
         # do regex search
         if find_idx >= 0:
             padding_chars = 100
             start_idx = max(start_idx - padding_chars, 0)
-            end_idx = min(end_idx + padding_chars, len(concat_text))
+            end_idx = min(end_idx + padding_chars, len(passage))
             if self.debug_match:
-                partial_text = concat_text[start_idx:end_idx]
+                partial_text = passage[start_idx:end_idx]
                 print(f"ft regex_search using partial_text = {partial_text}")
 
-        partial_text = concat_text[start_idx:end_idx]
+        partial_text = passage[start_idx:end_idx]
         beg_loc, end_loc, num_err = self.find_regex(partial_text, search_string)
         if beg_loc is not None and end_loc is not None:
             beg_loc += start_idx
@@ -101,7 +97,7 @@ class Search:
 
     def preprocess_hyphen_newline(self, text, hyphen_newline=' -\n'):
         """
-        Removes all occurrences of ' -\n' from the given text and keeps track of positions.
+        Removes all occurrences of a string like ' -\n' from the given text and keeps track of positions.
 
         Parameters:
         text (str): The input text.
@@ -147,13 +143,13 @@ class Search:
                     snippet = snippet[:adjusted_pos] + hyphen_newline + snippet[adjusted_pos:]
         return snippet
 
-    def find_regex(self, concat_text, search_string):
+    def find_regex(self, passage, search_string):
         """
-        Find the approximate match of a search_string in concat_text using regex with fuzzy matching.
+        Find the approximate match of a search_string in passage using regex with fuzzy matching.
         The function loops over max_edits from 0 upwards until a match is found.
         
         Parameters:
-            concat_text (str): The large text to search in.
+            passage (str): The large text to search in.
             search_string (str): The string to find approximately.
             max_allowed_edits (int): The maximum number of edits to attempt before stopping.
         
@@ -162,61 +158,79 @@ class Search:
         """
         if self.debug_match:
             print(f"find_regex : search string={search_string}")
-            if len(concat_text) > 5000:
-                print(f"find_regex: entire text of length {len(concat_text)}")
+            if len(passage) > 5000:
+                print(f"find_regex: entire text of length {len(passage)}")
             else:
-                print(f"find_regex : target string={concat_text}")
+                print(f"find_regex : target string={passage}")
 
         max_edits = 10
         edits = 0
-        intext1, positions1 = self.preprocess_hyphen_newline(concat_text, hyphen_newline=' -\n')
-        intext2, positions2 = self.preprocess_hyphen_newline(intext1, hyphen_newline='-\n')
-        intext3, positions3 = self.preprocess_joinedwords(intext2)
         while edits < max_edits:
             # Build the fuzzy search pattern with regex allowing for `max_edits` edits.
             pattern = f"(?e)(?i)({regex.escape(search_string)}){{e<={edits}}}"
             edits += 1
             if self.debug_match:
                 print(f" {edits} ", end="", flush=True)
-            match = regex.search(pattern, intext2)
+            match = regex.search(pattern, passage)
 
             if match:
                 print(f" match: {match}")
                 # Re-insert ' -\n' back into the matched string
                 matched_string = match.group(0)
                 match_start = match.start(0)
-                snippet1 = self.reinsert_joinedwords(intext3, positions3, matched_string)
-                snippet2 = self.reinsert_hyphen_newline(intext2, positions2, snippet1, hyphen_newline='-\n')
-                snippet3 = self.reinsert_hyphen_newline(intext1, positions1, snippet2, hyphen_newline=' -\n')
                 try:
-                    match_start = concat_text.index(snippet3)
+                    match_start = passage.index(matched_string)
                 except ValueError:
                     breakpoint()
                     return None, None, None
-                match_end = match_start + len(snippet3)
-                # print(f" match_start = {match_start}")
-                # Return the start and end index of the match and the number of edits used
-                if self.debug_match:
-                    print(" ")
-                    print(f"find_regex : found       q={matched_string}")
-                    print(f"find_regex : done with {match.fuzzy_counts} total {sum(match.fuzzy_counts)}")
+                match_end = match_start + len(matched_string)
                 return match_start, match_end, sum(match.fuzzy_counts)
 
-        # give up 
+        print(f" match: {match}")
+        # give up
         return None, None, None
+
+    def find_quote_in_passage(self, ident, passage, search_string):
+        """
+        """
+        # modify original text to remove pdf extraction artifacts
+        intext1, positions1 = self.preprocess_hyphen_newline(passage, hyphen_newline=' -\n')
+        intext2, positions2 = self.preprocess_hyphen_newline(intext1, hyphen_newline='-\n')
+        intext3, positions3 = self.preprocess_joinedwords(intext2)
+
+        beg_loc, end_loc, num_err = self.find_fuzzy_and_regex(ident, intext3, search_string)
+
+        matched_string = intext3[beg_loc:end_loc]
+
+        snippet1 = self.reinsert_joinedwords(intext3, positions3, matched_string)
+        snippet2 = self.reinsert_hyphen_newline(intext2, positions2, snippet1, hyphen_newline='-\n')
+        snippet3 = self.reinsert_hyphen_newline(intext1, positions1, snippet2, hyphen_newline=' -\n')
+        try:
+            match_start = passage.index(snippet3)
+        except ValueError:
+            breakpoint()
+            return None, None, None
+        match_end = match_start + len(snippet3)
+        # print(f" match_start = {match_start}")
+        # Return the start and end index of the match and the number of edits used
+        if self.debug_match:
+            print(" ")
+            print(f"find_quote_in_passage : found q={matched_string}")
+        return match_start, match_end, num_err
+
 
     def find_matching_blocks(self, blocks, quotes):
 
         # Concatenate block texts with block numbers
-        concat_text = ""
+        passage = ""
         block_number_map = {}
         for i, block in enumerate(blocks):
             x0, y0, x1, y1, block_text, block_no, block_type = block
             if block_type == 1:     # image block
                 continue
-            beg_idx = len(concat_text) - 1
+            beg_idx = len(passage) - 1
             end_idx = beg_idx + len(block_text)
-            concat_text += block_text + " "
+            passage += block_text + " "
             block_number_map[i] = (beg_idx, end_idx)
 
         # ok, now look for each quote
@@ -235,7 +249,7 @@ class Search:
         for ident, ql in quotes.items():
             for quote in ql:
                 blocks_per_quote = []
-                beg_loc, end_loc, num_err = self.find_fuzzy_and_regex(ident, concat_text, quote)
+                beg_loc, end_loc, num_err = self.find_quote_in_passage(ident, passage, quote)
                 # beg_loc, end_loc = quote.start_ptr + quote_ptr_offset, quote.end_ptr + quote_ptr_offset
                 # print(f"\n------------------\nquote = {beg_loc}:{end_loc}")
                 if beg_loc is not None and end_loc is not None:
