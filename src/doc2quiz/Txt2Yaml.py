@@ -100,6 +100,7 @@ please try generating questions again, but this time convert all 50 questions
     def get_initial_prompt(self, text):
         num_words = len(text.split())
         num_questions = round(num_words / self.cfg.num_words_per_question)
+        num_questions = 10
 
         if num_questions < 2:
             if len(text) < 100:
@@ -109,7 +110,7 @@ please try generating questions again, but this time convert all 50 questions
                 num_questions = 1
         
         return f"""
-You are to produce  {num_questions} questions from a passage.
+You are to produce {num_questions} questions from a passage.
 The questions should be of a mixture of the following types:
 
     matching
@@ -130,7 +131,7 @@ An example of output showing different question types:
 
 {self.example_json}
 
-the passage starts here ->
+{num_questions} questions fron passage that starts here ->
 
 {text}
 
@@ -143,7 +144,7 @@ the passage starts here ->
             exact_quotes = []
             for quote in item["quotes"]:
                 print(f" before: {quote}")
-                exact_quotes.append(self.search.find_exact_quote(quote))
+                exact_quotes.append(self.search.find_quote_in_passage(quote, ""))
                 print(f" after:  {quote}")
             item["quotes"] = exact_quotes
         return quiz
@@ -174,20 +175,20 @@ please try generating questions again with correct quote markers
         except errors as e:
             print(f"Rate limit hit: {e}")
             raise  # Reraise exception for backoff to handle
-    
+
     def ask_questions_yaml(self, chapter, title, extracted_text):
 
-        self.search = Search(self.cfg, extracted_text)
+        self.search = Search(self.cfg)
 
-        # prompt = self.get_initial_prompt(extracted_text)
-        prompt = self.get_seed_question_prompt(extracted_text)
+        prompt = self.get_initial_prompt(extracted_text)
+        # prompt = self.get_seed_question_prompt(extracted_text)
         model = ChatOpenAI(model=self.cfg.model, temperature=0)
         structured_llm = model.with_structured_output(Quiz, include_raw=True)
         res = self.get_structured_llm_res(structured_llm, prompt)
         if res['parsing_error'] is None:
             if False:
-                prompt+= "Your response was {res}"
-                prompt+= self.get_additional_seed_prompt(extracted_text, res)
+                prompt += f"Your response was {res}"
+                prompt += self.get_additional_seed_prompt(extracted_text, res)
                 res = self.get_structured_llm_res(structured_llm, prompt)
 
             out_parsed = self.remove_optional_nulls(res['parsed'])
@@ -208,13 +209,13 @@ please try generating questions again with correct quote markers
                     print(f"The 'questions' key is missing in {out_parsed}")
                     return None
             # fix quotes
-            out_exact = self.make_quotes_exact(out_parsed)
+            # out_exact = self.make_quotes_exact(out_parsed)
 
             # ident has to be unique for all quiz in upload set
             title_yaml = f"{chapter} : {title}"
             ident_yaml = f"{chapter}-{self.cfg.platform}-{self.cfg.model}"
             out_edited = {'questions': {'title': title_yaml, 'ident': ident_yaml}}
-            out_edited['questions'].update(out_exact['questions'])
+            out_edited['questions'].update(out_parsed['questions'])
             yaml_str = yaml.dump(out_edited, sort_keys=False)
             return yaml_str
 
