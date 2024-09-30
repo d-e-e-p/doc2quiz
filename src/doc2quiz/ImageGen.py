@@ -14,7 +14,7 @@ class ImageGen:
         self.start_page = start_page
         self.end_page = end_page
         self.chapter = chapter
-        self.debug_match = True
+        self.debug_match = False
         self.nprocess = None
         self.search = Search(self.cfg)
 
@@ -87,6 +87,11 @@ class ImageGen:
         new_width = width * scale_factor
         new_height = height * scale_factor
 
+        width_limit = 1000
+        height_limit = 1000
+        if new_width > width_limit or new_height > height_limit:
+            return bounding_rect
+
         # Create the new scaled rectangle by expanding or shrinking equally from the center
         new_rect = pymupdf.Rect(
             max(0, center_x - new_width / 2),   # new x0
@@ -118,6 +123,15 @@ class ImageGen:
         )
         
         return new_rect
+
+    def mark_all_blocks(self, blocks, page):
+        
+        # Convert block tuples to Rect objects and store them with original block
+        block_rects = [(pymupdf.Rect(block[:4]), block) for block in blocks]
+
+        # Draw rectangles for each group
+        for rect, _ in block_rects:
+            page.draw_rect(rect, color=(0, 0, 1), width=2, radius=0.1)
 
     def mark_intersecting_blocks(self, blocks, page):
         
@@ -251,8 +265,8 @@ class ImageGen:
                 if highlight_text_box:
                     tmp_page.add_highlight_annot(blocks)
                 self.mark_intersecting_blocks(blocks, tmp_page)
+                # self.mark_all_blocks(blocks, tmp_page)
 
-                # Calculate the bounding box that surrounds all the blocks
                 # Calculate the bounding box that surrounds all the blocks
                 bounding_rect = pymupdf.Rect()
                 for block in blocks:
@@ -264,6 +278,7 @@ class ImageGen:
                 
                 # Render the entire page as a pixmap (image)
                 imgname = f"{self.chapter}/img{counter:0{padding_width}}.png"
+
 
                 double_bounding_rect = self.scale_bounding_rect(bounding_rect, 2.0)
                 double_bounding_rect = double_bounding_rect & page.rect
