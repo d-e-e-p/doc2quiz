@@ -217,7 +217,7 @@ class Qti:
         dropdown_blanks = [dd.dropdown for dd in dropdowns]
         are_equal = set(label_blanks) == set(dropdown_blanks)
         if not are_equal:
-            print("WARNING: blanks not equal. label_blanks = {label_blanks} dropdown_blanks={dropdown_blanks}")
+            print(f"WARNING: blanks not equal. label_blanks = {label_blanks} dropdown_blanks={dropdown_blanks}")
 
         if dropdown.dropdown:
             ident = "response_" + dropdown.dropdown
