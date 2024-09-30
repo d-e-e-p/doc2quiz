@@ -14,9 +14,10 @@ class Xml2Quiz:
         self.cfg = cfg
 
     def process_qti_and_images(self):
+        lines = Utils.read_toc_csv(self.cfg.input_file_csv)
+
         if not self.cfg.no_feedback_images:
             # create separate zip files for each chapter
-            lines = Utils.read_toc_csv(self.cfg.input_file_csv)
             files_to_upload = []
             for start_page, end_page, chapter, title in lines:
                 png_dirname = str(Path(self.cfg.output_dir_png, chapter))
@@ -28,20 +29,28 @@ class Xml2Quiz:
 
             for file in files_to_upload:
                 upload_canvas_zipfiles(file)
-                    
-        qti_file_path = str(Path(self.cfg.output_dir_zip, "xml.zip"))
-        self.zip_dir(self.cfg.output_dir_zip, self.cfg.output_dir_xml, qti_file_path)
-        upload_canvas_quiz(qti_file_path)
-            
+
+        files_to_upload = []
+        for start_page, end_page, chapter, title in lines:
+            xml_filename = str(Path(self.cfg.output_dir_xml, f"{chapter}.xml"))
+            if os.path.isfile(xml_filename):
+                files_to_upload.append(xml_filename)
+
+        if files_to_upload:
+            qti_file_path = str(Path(self.cfg.output_dir_zip, "xml.zip"))
+            parent_dir = os.path.dirname(self.cfg.output_dir_zip)
+            self.zip_files(parent_dir, files_to_upload, qti_file_path)
+            upload_canvas_quiz(qti_file_path)
+
     # Zip the xml files
-    def zip_files(self, file_paths, output_filename):
+    def zip_files(self, parent, file_paths, output_filename):
         if not output_filename.endswith('.zip'):
             output_filename += '.zip'
         try:
             with zipfile.ZipFile(output_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
                 for file in file_paths:
                     if os.path.exists(file):
-                        zipf.write(file, os.path.basename(file))
+                        zipf.write(file, os.path.relpath(file_path, parent))
                     else:
                         print(f"Warning: File not found: {file}")
             print(f"Zip file created successfully: {output_filename}")
