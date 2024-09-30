@@ -225,6 +225,23 @@ class CanvasInterface:
         except Exception as e:
             print(f"An error occurred: {e}")
 
+    def update_quizzes(self, allowed_attempts=None, publish=None):
+
+        print(" BEFORE: \n")
+        self.list_all_quizzes()
+
+
+        course = self.canvas.get_course(self.course_id)
+        quizzes = course.get_quizzes()
+        for quiz in quizzes:
+            if allowed_attempts is not None:
+                quiz.allowed_attempts = allowed_attempts
+            if publish is not None:
+                quiz.published = True
+
+        print(" AFTER: \n")
+        self.list_all_quizzes()
+
     def list_all_quizzes(self):
         """List all quizzes and display their version number and title in a table."""
         try:
@@ -233,12 +250,13 @@ class CanvasInterface:
     
             # Create a table using PrettyTable
             table = PrettyTable()
-            table.field_names = ["Version", "Quiz Title"]
-            table.align["Quiz Title"] = "l"
+            table.title = f"{course.name} ({course.id})"
+            table.field_names = ["Version", "Published", "Allowed\nAttempts", "Quiz\nTitle"]
+            table.align["Quiz\nTitle"] = "l"
     
             # Iterate through each quiz and add its version number and title to the table
             for quiz in quizzes:
-                table.add_row([quiz.version_number, quiz.title])
+                table.add_row([quiz.version_number, quiz.published, quiz.allowed_attempts, quiz.title])
     
             # Print the table
             print(table)
