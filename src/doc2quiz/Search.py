@@ -43,9 +43,9 @@ class Search:
         n_chars = len(search_string)
 
         print(f"setip {search_string}")
-        self.setup_nprocess(n_chars, passage)
+        nprocess = self.setup_nprocess(n_chars, passage)
         print("match")
-        best_match, similarity = self.nprocess.extractOne(search_string)
+        best_match, similarity = nprocess.extractOne(search_string)
 
         if self.debug_match:
             print("------------")
