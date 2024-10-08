@@ -35,10 +35,12 @@ class Xml2Quiz:
             xml_filename = str(Path(self.cfg.output_dir_xml, f"{chapter}.xml"))
             if os.path.isfile(xml_filename):
                 files_to_upload.append(xml_filename)
+            else:
+                print(f" ERROR: qti file missing {xml_filename}")
 
         if files_to_upload:
             qti_file_path = str(Path(self.cfg.output_dir_zip, "xml.zip"))
-            parent_dir = os.path.dirname(self.cfg.output_dir_zip)
+            parent_dir = os.path.dirname(self.cfg.output_dir_xml)
             self.zip_files(parent_dir, files_to_upload, qti_file_path)
             upload_canvas_quiz(qti_file_path)
 
@@ -50,7 +52,7 @@ class Xml2Quiz:
             with zipfile.ZipFile(output_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
                 for file in file_paths:
                     if os.path.exists(file):
-                        zipf.write(file, os.path.relpath(file_path, parent))
+                        zipf.write(file, os.path.relpath(file, parent))
                     else:
                         print(f"Warning: File not found: {file}")
             print(f"Zip file created successfully: {output_filename}")
