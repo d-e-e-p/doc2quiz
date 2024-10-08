@@ -2,11 +2,11 @@
 # from prettytable import PrettyTable
 import os
 import pymupdf
-import regex
 import math
 from collections import defaultdict
 from PIL import Image
 from .Search import Search
+
 
 class ImageGen:
     def __init__(self, cfg, start_page, end_page, chapter):
@@ -54,7 +54,7 @@ class ImageGen:
         for page_num in range(spage, epage + 1):
             original_page = doc.load_page(page_num)
             rect = original_page.rect
-            
+
             # Insert the content of the original page into the composite page
             composite_page.show_pdf_page(pymupdf.Rect(0, y_offset, rect.width, y_offset + rect.height), doc, page_num)
 
@@ -70,7 +70,7 @@ class ImageGen:
     def scale_bounding_rect(self, bounding_rect, scale_factor):
         """
         Scale the size of the bounding rectangle in all directions by a specified factor.
-        
+
         :param bounding_rect: The original bounding rectangle.
         :param scale_factor: The factor by which to scale the rectangle (e.g., 0.5 to halve, 2.0 to double).
         :return: A new scaled Rect object.
@@ -109,11 +109,11 @@ class ImageGen:
         # Calculate the center of the rectangle
         center_x = (bounding_rect.x0 + bounding_rect.x1) / 2
         center_y = (bounding_rect.y0 + bounding_rect.y1) / 2
-        
+
         # Calculate the current width and height
         width = bounding_rect.width
         height = bounding_rect.height
-        
+
         # Double the size by expanding equally on all sides
         new_rect = pymupdf.Rect(
             center_x - width,   # new x0
@@ -121,56 +121,77 @@ class ImageGen:
             center_x + width,   # new x1
             center_y + height   # new y1
         )
-        
+
         return new_rect
 
     def mark_all_blocks(self, blocks, page):
-        
+
         # Convert block tuples to Rect objects and store them with original block
         block_rects = [(pymupdf.Rect(block[:4]), block) for block in blocks]
 
         # Draw rectangles for each group
         for rect, _ in block_rects:
-            page.draw_rect(rect, color=(0, 0, 1), width=2, radius=0.1)
+            page.draw_rect(rect, color=(0, 1, 1), width=2, radius=0.2)
+
+    def merge_combined_rects(self, combined_rect_list):
+        merged_rects = []
+
+        # Iterate until no more merges are possible
+        while combined_rect_list:
+            current_rect = combined_rect_list.pop(0)
+
+            # Compare current rect with the rest of the list
+            for i in range(len(combined_rect_list) - 1, -1, -1):  # Iterate backwards to safely remove items
+                other_rect = combined_rect_list[i]
+
+                # If the two rectangles intersect, merge them
+                if current_rect.intersects(other_rect):
+                    current_rect = current_rect.include_rect(other_rect)  # Merge the two
+                    del combined_rect_list[i]  # Remove the merged rectangle
+
+            # If no more merges, append the final rect to the merged list
+            merged_rects.append(current_rect)
+
+        return merged_rects
 
     def mark_intersecting_blocks(self, blocks, page):
-        
         # Convert block tuples to Rect objects and store them with original block
         block_rects = [(pymupdf.Rect(block[:4]), block) for block in blocks]
+        bloat_factor = 1.2
 
-        # Create a list to store groups of intersecting block rects
-        intersecting_groups = []
+        # Create a list to store combined bounding rectangles
+        combined_rect_list = []
 
-        # Compare blocks to find intersecting ones
+        # Compare blocks to find intersecting ones and combine their rects
         for rect, block in block_rects:
-            added_to_group = False
-            # Check against existing groups
-            for group in intersecting_groups:
-                # If rect intersects with any block in the group, add to group
-                if any(rect.intersects(other_rect) for other_rect, _ in group):
-                    group.append((rect, block))
-                    added_to_group = True
-                    break
-            
-            # If not added to any group, create a new group
-            if not added_to_group:
-                intersecting_groups.append([(rect, block)])
+            added_to_combined = False
 
-        # Draw rectangles for each group
-        for group in intersecting_groups:
-            # Combine intersecting rectangles into one larger rectangle
-            combined_rect = pymupdf.Rect()
-            for rect, _ in group:
-                combined_rect.include_rect(rect)
-            
-            # Draw the combined rectangle on the page
-            scaled_rect = self.scale_bounding_rect(combined_rect, 1.1)
-            page.draw_rect(scaled_rect, color=(0, 0, 1), width=2, radius=0.1)
+            # Check if this rect intersects with any combined rectangle
+            for i, combined_rect in enumerate(combined_rect_list):
+                if rect.intersects(combined_rect):
+                    # Merge the current rect with the existing combined rect
+                    combined_rect_list[i] = combined_rect.include_rect(rect)
+                    added_to_combined = True
+                    break
+
+            # If not added to any combined rect, add as a new combined rectangle
+            if not added_to_combined:
+                scaled_rect = self.scale_bounding_rect(rect, bloat_factor)
+                combined_rect_list.append(scaled_rect)
+
+        combined_rect_list = self.merge_combined_rects(combined_rect_list)
+
+        # Draw the combined rectangle on the page
+        for rect in combined_rect_list:
+            scaled_rect = self.scale_bounding_rect(rect, 1.1 / bloat_factor)
+            page.draw_rect(scaled_rect, color=(0, 0, 1), width=2, radius=0.2)
+
+        return combined_rect_list
 
     def delete_all_annot(self, page):
         annot = page.first_annot
         breakpoint()
-        
+
         # Iterate over all annotations and delete them
         while annot:
             page.delete_annot(annot)  # Delete the current annotation
@@ -182,8 +203,7 @@ class ImageGen:
         Highlights the text blocks in a PDF page, extracts the highlighted area,
         zooms out by 2x, and saves the resulting image.
         """
-        highlight_text_box = False
-        
+
         quote_images = defaultdict(list)
 
         # Set the scale factor for zooming out (2x zoom out means scaling to 50%)
@@ -216,7 +236,7 @@ class ImageGen:
 
                 # Create a 2D transformation matrix to zoom the page out (scaling down)
                 mat = pymupdf.Matrix(zoom_out_scale, zoom_out_scale)
-                
+
                 # Render the entire page as a pixmap (image)
                 double_bounding_rect = self.scale_bounding_rect(bounding_rect, 2.0)
                 double_bounding_rect = double_bounding_rect & page.rect
@@ -231,7 +251,7 @@ class ImageGen:
                 quote_images[ident].append(imgname)
                 # self.delete_all_annot(tmp_page)
                 tmp_doc.close()
-            
+
         return quote_images
 
     def save_block_images(self, matching_blocks, page, doc):
@@ -242,7 +262,7 @@ class ImageGen:
         highlight_text_box = False
 
         print("save_block_images:")
-        
+
         quote_images = defaultdict(list)
 
         # Set the scale factor for zooming out (2x zoom out means scaling to 50%)
@@ -251,7 +271,6 @@ class ImageGen:
         num_blocks = sum(len(values) for values in matching_blocks.values())
         if num_blocks:
             padding_width = math.ceil(math.log10(num_blocks + 1))
-
 
         # Iterate over the matching quotes and their blocks
         for ident, block_lol in matching_blocks.items():
@@ -272,13 +291,12 @@ class ImageGen:
                 for block in blocks:
                     block_rect = pymupdf.Rect(block)  # Get the block rectangle
                     bounding_rect |= block_rect    # Union with the overall bounding box
-            
+
                 # Create a 2D transformation matrix to zoom the page out (scaling down)
                 mat = pymupdf.Matrix(zoom_out_scale, zoom_out_scale)
-                
+
                 # Render the entire page as a pixmap (image)
                 imgname = f"{self.chapter}/img{counter:0{padding_width}}.png"
-
 
                 double_bounding_rect = self.scale_bounding_rect(bounding_rect, 2.0)
                 double_bounding_rect = double_bounding_rect & page.rect
@@ -294,17 +312,16 @@ class ImageGen:
                     os.makedirs(dirname, exist_ok=True)
                     image.save(output_file)
                     quote_images[ident].append(imgname)
-                    
+
                 except ValueError as e:
                     print(f"Error creating image from pixmap: {e}")
 
                 except Exception as e:
                     print(f"An unexpected error occurred: {e}")
 
-
                 # self.delete_all_annot(tmp_page)
                 tmp_doc.close()
-            
+
         return quote_images
 
     def generate(self, quotes, chapter):
