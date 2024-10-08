@@ -18,7 +18,7 @@ class Search:
 
     def setup_nprocess(self, n_chars, passage):
         min_chunk_size = 200
-        chunk_size = max(1.3 * n_chars, min_chunk_size)
+        chunk_size = max(1.5 * n_chars, min_chunk_size)
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_size / 2,
@@ -60,7 +60,7 @@ class Search:
             find_idx = -1
             if self.debug_match:
                 print("No reasonable match found. Using the entire text.")
-
+        breakpoint()
         # create partial string and offset
         if find_idx >= 0:
             start_idx = find_idx
@@ -73,7 +73,10 @@ class Search:
         if find_idx == -1:
             if self.debug_match:
                 partial_text = passage[start_idx:end_idx]
-                print(f"fm no_regex_search so return  partial text match = {partial_text}")
+                if len(partial_text) > 5000:
+                    print(f"fm:partial_text length {len(partial_text)} so return None")
+                else:
+                    print(f"fm : partial_text = {partial_text} so return None")
             return None, None, None
 
         # do regex search
@@ -83,7 +86,10 @@ class Search:
             end_idx = min(end_idx + padding_chars, len(passage))
             if self.debug_match:
                 partial_text = passage[start_idx:end_idx]
-                print(f"ft regex_search using partial_text = {partial_text}")
+                if len(partial_text) > 5000:
+                    print(f"fm:regex_search using partial_text length {len(partial_text)} ")
+                else:
+                    print(f"fm :regex_search using partial_text = {partial_text}")
 
         partial_text = passage[start_idx:end_idx]
         beg_loc, end_loc, num_err = self.find_regex(partial_text, search_string)
