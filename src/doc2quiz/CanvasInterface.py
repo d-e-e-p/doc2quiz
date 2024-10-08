@@ -225,11 +225,10 @@ class CanvasInterface:
         except Exception as e:
             print(f"An error occurred: {e}")
 
-    def update_quizzes(self, allowed_attempts=None, publish=None):
+    def update_quizzes(self, allowed_attempts=None, publish=None, unpublish=None):
 
         print(" BEFORE: \n")
         self.list_all_quizzes()
-
 
         course = self.canvas.get_course(self.course_id)
         quizzes = course.get_quizzes()
@@ -238,9 +237,23 @@ class CanvasInterface:
                 quiz.allowed_attempts = allowed_attempts
             if publish is not None:
                 quiz.published = True
+            if unpublish is not None:
+                quiz.published = False
 
         print(" AFTER: \n")
         self.list_all_quizzes()
+
+    def delete_all_quizzes(self):
+        self.list_all_quizzes()
+        confirmation = input("Are you sure you want to delete all these quizzes? (y/n): ").strip().lower()
+        if confirmation == 'y':
+            course = self.canvas.get_course(self.course_id)
+            quizzes = course.get_quizzes()
+            for quiz in quizzes:
+                quiz.delete()
+                print(f"Deleted quiz: {quiz.title}")
+
+            self.list_all_quizzes()
 
     def list_all_quizzes(self):
         """List all quizzes and display their version number and title in a table."""
@@ -251,8 +264,8 @@ class CanvasInterface:
             # Create a table using PrettyTable
             table = PrettyTable()
             table.title = f"{course.name} ({course.id})"
-            table.field_names = ["Version", "Published", "Allowed\nAttempts", "Quiz\nTitle"]
-            table.align["Quiz\nTitle"] = "l"
+            table.field_names = ["Version", "Published?", "Attempts", "Quiz Title"]
+            table.align["Quiz Title"] = "l"
     
             # Iterate through each quiz and add its version number and title to the table
             for quiz in quizzes:
