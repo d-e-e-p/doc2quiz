@@ -2,9 +2,9 @@
 #
 #
 import sys
-import os
 import yaml
 import json
+import logging
 import backoff
 
 from .Utils import Utils
@@ -13,11 +13,12 @@ from .Quiz import Quiz
 from .Search import Search
 
 import openai
-import anthropic
+# import anthropic
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 from pydantic_yaml import parse_yaml_raw_as
 
+log = logging.getLogger()
 errors = (openai.RateLimitError)
 
 
@@ -90,7 +91,7 @@ the passage starts here ->
         quiz = res['parsed']
         num_questions = len(quiz.questions.items)
 
-        prompt = """
+        prompt = f"""
 only {num_questions} questions were converted
 
 please try generating questions again, but this time convert all 50 questions
@@ -104,7 +105,7 @@ please try generating questions again, but this time convert all 50 questions
 
         if num_questions < 2:
             if len(text) < 100:
-                print(f"Skipping {chapter} : {title} : length len={len(text)} so num_questions={num_questions}")
+                log.debug(f"skiping becase text is too short len={len(text)} so num_questions={num_questions} text={text}")
                 return None
             else:
                 num_questions = 1
@@ -140,12 +141,12 @@ An example of output showing different question types:
 
     def make_quotes_exact(self, quiz):
         for item in quiz["questions"]["items"]:
-            print(f" prompt: {item['prompt']}")
+            log.debug(f" prompt: {item['prompt']}")
             exact_quotes = []
             for quote in item["quotes"]:
-                print(f" before: {quote}")
+                log.debug(f" before: {quote}")
                 exact_quotes.append(self.search.find_quote_in_passage(quote, ""))
-                print(f" after:  {quote}")
+                log.debug(f" after:  {quote}")
             item["quotes"] = exact_quotes
         return quiz
 
@@ -156,7 +157,7 @@ the quote should be a segment of passage that explains the answers.
 """
         quiz = res['parsed']
         for item in quiz.questions.items:
-            print(f" prompt: {item.prompt}")
+            log.debug(f" prompt: {item.prompt}")
             for quote in item.quotes:
                 prompt += f" quote:  {quote}"
                 prompt += f" quote_text  {text[quote.start_ptr:quote.end_ptr]}\n"
@@ -164,7 +165,7 @@ the quote should be a segment of passage that explains the answers.
         prompt += """
 please try generating questions again with correct quote markers
         """
-        print(f" try2 prompt = {prompt}")
+        log.debug(f" try2 prompt = {prompt}")
         return prompt
 
     # Define the function with backoff on rate limit errors
@@ -173,7 +174,7 @@ please try generating questions again with correct quote markers
         try:
             return structured_llm.invoke(prompt)
         except errors as e:
-            print(f"Rate limit hit: {e}")
+            log.warn(f"Rate limit hit: {e}")
             raise  # Reraise exception for backoff to handle
 
     def ask_questions_yaml(self, chapter, title, extracted_text):
@@ -243,7 +244,7 @@ please try generating questions again with correct quote markers
                     # TODO: process yaml to add additional tags
                     file.write(yaml_txt)
                     file.write("\n")
-                    print(f'Saved {chapter} to {yaml_file_name}')
+                    log.info(f'Saved {chapter} to {yaml_file_name}')
 
     def check_files(self):
         try:
@@ -255,7 +256,7 @@ please try generating questions again with correct quote markers
                 raise OSError(f"Invalid CSV file: {self.cfg.input_file_csv}")
 
         except (OSError) as e:
-            print(f"Error: {e}")
+            log.error(f"Error: {e}")
             sys.exit(1)
 
     def run(self):
@@ -264,7 +265,7 @@ please try generating questions again with correct quote markers
 
 
 def txt_to_yaml(cfg):
-    print("Converting from TXT to YAML...")
+    log.info("Converting from TXT to YAML...")
     engine = Txt2Yaml(cfg)
     engine.run()
 

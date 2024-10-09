@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
+import os
+import sys
 import regex
 import wordninja
 import string
+import logging
 from collections import defaultdict
-from neofuzz import char_ngram_process
 from neofuzz import Process
 from sklearn.feature_extraction.text import TfidfVectorizer
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from .Utils import Utils
 
 # from prettytable import PrettyTable
+log = logging.getLogger()
 
 
 class Search:
@@ -16,9 +20,11 @@ class Search:
         self.cfg = cfg
         self.debug_match = True
 
-    def setup_nprocess(self, n_chars, passage):
+    def run_nprocess(self, ident, search_string, passage):
+        n_chars = len(search_string)
         min_chunk_size = 200
         chunk_size = max(1.5 * n_chars, min_chunk_size)
+        log.debug(f"min chunk size = {chunk_size}")
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_size / 2,
@@ -28,11 +34,27 @@ class Search:
         docs = text_splitter.create_documents([passage])
         sentences = [doc.page_content for doc in docs]
 
+        Utils.set_logging_level(logging.INFO)
         vectorizer = TfidfVectorizer()
         # self.nprocess = char_ngram_process()
         nprocess = Process(vectorizer, metric="cosine")
         nprocess.index(sentences)
-        return nprocess
+        Utils.set_logging_level(logging.DEBUG)
+        log.debug("running extractOne")
+        best_match, similarity = nprocess.extractOne(search_string)
+        log.debug("------------")
+        log.debug(f"fm quote      {ident}: {search_string}")
+        log.debug(f"fm Best match {ident}: {best_match}")
+        log.debug(f"fm Similarity:{ident}: {similarity}")
+        if self.debug_match:
+            if similarity < 10:
+                file_name = "logs/search_debug.log"
+                os.makedirs(os.path.dirname(file_name), exist_ok=True)
+                with open(file_name, 'w', encoding='utf-8') as file:
+                    for i, line in enumerate(sentences):
+                        file.write(f"{i}:{line}\n")
+                breakpoint()
+        return best_match, similarity
 
     def find_fuzzy_and_regex(self, ident, passage, search_string):
         """
@@ -42,16 +64,8 @@ class Search:
         threshold = 10
         n_chars = len(search_string)
 
-        print(f"setip {search_string}")
-        nprocess = self.setup_nprocess(n_chars, passage)
-        print("match")
-        best_match, similarity = nprocess.extractOne(search_string)
-
-        if self.debug_match:
-            print("------------")
-            print(f"fm quote      {ident} : {search_string}")
-            print(f"fm Best match {ident}: {best_match}")
-            print(f"fm Similarity:{ident}: {similarity}")
+        log.debug(f"search_string: {search_string}")
+        best_match, similarity = self.run_nprocess(ident, search_string, passage)
 
         if best_match and similarity > threshold:
             # Find the starting index of the match in the original passage
@@ -59,8 +73,7 @@ class Search:
         else:
             find_idx = -1
             if self.debug_match:
-                print("No reasonable match found. Using the entire text.")
-        breakpoint()
+                log.debug("No reasonable match found. Using the entire text.")
         # create partial string and offset
         if find_idx >= 0:
             start_idx = find_idx
@@ -74,9 +87,9 @@ class Search:
             if self.debug_match:
                 partial_text = passage[start_idx:end_idx]
                 if len(partial_text) > 5000:
-                    print(f"fm:partial_text length {len(partial_text)} so return None")
+                    log.debug(f"fm:partial_text length {len(partial_text)} so return None")
                 else:
-                    print(f"fm : partial_text = {partial_text} so return None")
+                    log.debug(f"fm : partial_text = {partial_text} so return None")
             return None, None, None
 
         # do regex search
@@ -87,9 +100,9 @@ class Search:
             if self.debug_match:
                 partial_text = passage[start_idx:end_idx]
                 if len(partial_text) > 5000:
-                    print(f"fm:regex_search using partial_text length {len(partial_text)} ")
+                    log.debug(f"fm:regex_search using partial_text length {len(partial_text)} ")
                 else:
-                    print(f"fm :regex_search using partial_text = {partial_text}")
+                    log.debug(f"fm :regex_search using partial_text = {partial_text}")
 
         partial_text = passage[start_idx:end_idx]
         beg_loc, end_loc, num_err = self.find_regex(partial_text, search_string)
@@ -156,7 +169,6 @@ class Search:
         # in case positions is empty
         return snippet
         
-
     def find_regex(self, passage, search_string):
         """
         Find the approximate match of a search_string in passage using regex with fuzzy matching.
@@ -171,11 +183,11 @@ class Search:
             (start_index, end_index, max_edits): A tuple with the start and end index of the match and the number of edits used.
         """
         if self.debug_match:
-            print(f"find_regex : search string={search_string}")
+            log.debug(f"find_regex : search string={search_string}")
             if len(passage) > 5000:
-                print(f"find_regex: entire text of length {len(passage)}")
+                log.debug(f"find_regex: entire text of length {len(passage)}")
             else:
-                print(f"find_regex : target string={passage}")
+                log.debug(f"find_regex : target string={passage}")
 
         # limit max_edits to 10 or 10% of short quote
         max_edits = min(10, len(search_string) * 0.1)
@@ -186,10 +198,11 @@ class Search:
             edits += 1
             if self.debug_match:
                 print(f" {edits} ", end="", flush=True)
+                sys.stdout.flush()
             match = regex.search(pattern, passage)
 
             if match:
-                print(f" match: {match}")
+                log.debug(f" match: {match}")
                 # Re-insert ' -\n' back into the matched string
                 matched_string = match.group(0)
                 match_start = match.start(0)
@@ -201,7 +214,7 @@ class Search:
                 match_end = match_start + len(matched_string)
                 return match_start, match_end, sum(match.fuzzy_counts)
 
-        print(f" match: {match} max_edits={max_edits}")
+        log.debug(f" match: {match} max_edits={max_edits}")
         # give up
         return None, None, None
 
@@ -218,7 +231,7 @@ class Search:
 
         if beg_loc is None or end_loc is None:
             if self.debug_match:
-                print("find_quote_in_passage : empty handed")
+                log.debug("find_quote_in_passage : empty handed")
             return None, None, None
     
         matched_string = intext4[beg_loc:end_loc]
@@ -233,12 +246,11 @@ class Search:
             breakpoint()
             return None, None, None
         match_end = match_start + len(snippet3)
-        # print(f" match_start = {match_start}")
+        # log.debug(f" match_start = {match_start}")
         # Return the start and end index of the match and the number of edits used
         if self.debug_match:
-            print(f"find_quote_in_passage : found q={snippet4}")
+            log.debug(f"find_quote_in_passage : found q={snippet4}")
         return match_start, match_end, num_err
-
 
     def find_matching_blocks(self, blocks, quotes):
 
@@ -272,7 +284,7 @@ class Search:
                 blocks_per_quote = []
                 beg_loc, end_loc, num_err = self.find_quote_in_passage(ident, passage, quote)
                 # beg_loc, end_loc = quote.start_ptr + quote_ptr_offset, quote.end_ptr + quote_ptr_offset
-                # print(f"\n------------------\nquote = {beg_loc}:{end_loc}")
+                # log.debug(f"\n------------------\nquote = {beg_loc}:{end_loc}")
                 if beg_loc is not None and end_loc is not None:
                     for i, (beg_idx, end_idx) in block_number_map.items():
                         case1 = beg_idx >= beg_loc and beg_idx <= end_loc
@@ -281,18 +293,17 @@ class Search:
                         if case1 or case2 or case3:
                             blocks_per_quote.append(blocks[i][:4])
                         # if regex.match("Theodor Schwann",quote):
-                        #    print(f"{beg_idx} v {beg_loc} and e={end_idx} v {end_loc} : {case1} {case2} {case3}")
+                        #    log.debug(f"{beg_idx} v {beg_loc} and e={end_idx} v {end_loc} : {case1} {case2} {case3}")
                     matching_blocks[ident].append(blocks_per_quote)
-                    print(f"matching_blocks for ident {ident} = {len(matching_blocks[ident])}")
+                    log.debug(f"matching_blocks for ident {ident} = {len(matching_blocks[ident])}")
         for ident, ql in quotes.items():
             if not matching_blocks[ident]:
-                print(f" missing matcking block for {ql}")
+                log.debug(f" missing matcking block for {ql}")
         return matching_blocks
-
 
     def preprocess_joinedwords(self, text):
         """
-        Segments concatenated words using wordninja while maintaining spaces, newlines, punctuation, 
+        Segments concatenated words using wordninja while maintaining spaces, newlines, punctuation,
         numbers, and other non-alphabetic characters. Keeps track of positions where splits occur.
 
         Parameters:
@@ -332,7 +343,6 @@ class Search:
         
         return preprocessed_text, positions
 
-
     def reinsert_joinedwords(self, text, positions, target_string):
         """
         Re-inserts original concatenated words back into a target snippet of the text starting at the given offset,
@@ -349,7 +359,7 @@ class Search:
         offset = text.index(target_string)
         length = len(target_string)
         snippet = text[offset:offset + length]
-        print(f"reinsert_joinedwords:  offset = {offset} len={length}")
+        log.debug(f"reinsert_joinedwords:  offset = {offset} len={length}")
         
         # Iterate over positions and find those that apply within the snippet range
         for pos, original_word in positions:
@@ -370,35 +380,38 @@ class Search:
         """
         return self.find_fuzzy_search(quote)
 
+
 def test_worksplit():
     text = """
     mightiestcommercial is a normal:
-        1. spaceflightlaunch   
+        1. spaceflightlaunch  
         2. successlandingspectacular
     test
 
     """
 
-    print(f" test1: test_split")
+    log.debug(" test1: test_split")
     search = Search({})
-    intext1 , positions1 = search.preprocess_joinedwords(text)
-    print("Orig text       :", text)
-    print("Preprocessed text:", intext1)
-    print("Positions:", positions1)
+    intext1, positions1 = search.preprocess_joinedwords(text)
+    log.debug("Orig text       :", text)
+    log.debug("Preprocessed text:", intext1)
+    log.debug("Positions:", positions1)
 
     # Re-insert concatenated words starting from a given offset (e.g., at "spaceflightlaunch")
     target_string = "1. spaceflight launch"
     snippet = search.reinsert_joinedwords(intext1, positions1, target_string)
-    print("Reconstructed snippet:", snippet)
+    log.debug("Reconstructed snippet:", snippet)
 
-    print(" test2: regex")
+    log.debug(" test2: regex")
     search_string = "1. spaceflightlaunch"
     beg_loc, end_loc, num_err = search.find_regex(text, search_string)
-    print(f" found target_string at ({beg_loc} , {end_loc}) with err={num_err}")
+    log.debug(f" found target_string at ({beg_loc} , {end_loc}) with err={num_err}")
+
 
 def test_search():
-    search_string="""America’s population was still about 90 percent rural, despite the flourishing cities. All but 5 percent of the people lived east of the Appalachian Mountains."""
-    target_string="""impo-
+    search_string = """America’s population was still about 90 percent rural,
+    despite the flourishing cities. All but 5 percent of the people lived east of the Appalachian Mountains."""
+    target_string = """impo-
 ssible. The eyes of a skeptical world
 were on the upstart United States.
  Growing Pains
@@ -423,7 +436,7 @@ tra"""
 
     search = Search({})
     beg_loc, end_loc, num_err = search.find_regex(target_string, search_string)
-    print(f" found search_string at ({beg_loc} , {end_loc}) with err={num_err}")
+    log.debug(f" found search_string at ({beg_loc} , {end_loc}) with err={num_err}")
     
 
 if __name__ == "__main__":

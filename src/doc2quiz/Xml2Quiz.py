@@ -4,9 +4,12 @@
 import sys
 import os
 import zipfile
+import logging
 from pathlib import Path
-from .CanvasInterface import upload_canvas_quiz, upload_canvas_images, upload_canvas_zipfiles
+from .CanvasInterface import upload_canvas_quiz, upload_canvas_zipfiles
 from .Utils import Utils
+
+log = logging.getLogger()
 
 
 class Xml2Quiz:
@@ -36,7 +39,7 @@ class Xml2Quiz:
             if os.path.isfile(xml_filename):
                 files_to_upload.append(xml_filename)
             else:
-                print(f" ERROR: qti file missing {xml_filename}")
+                log.error(f" ERROR: qti file missing {xml_filename}")
 
         if files_to_upload:
             qti_file_path = str(Path(self.cfg.output_dir_zip, "xml.zip"))
@@ -54,11 +57,11 @@ class Xml2Quiz:
                     if os.path.exists(file):
                         zipf.write(file, os.path.relpath(file, parent))
                     else:
-                        print(f"Warning: File not found: {file}")
-            print(f"Zip file created successfully: {output_filename}")
+                        log.warn(f"Warning: File not found: {file}")
+            log.info(f"Zip file created successfully: {output_filename}")
             return output_filename
         except Exception as e:
-            print(f"An error occurred while creating the zip file: {str(e)}")
+            log.error(f"An error occurred while creating the zip file: {str(e)}")
             return None
 
     def zip_dir(self, parent, dir_path, output_filename):
@@ -66,7 +69,7 @@ class Xml2Quiz:
             output_filename += '.zip'
 
         if not os.path.isdir(dir_path):
-            print(f"Error: The directory {dir_path} does not exist.")
+            log.error(f"Error: The directory {dir_path} does not exist.")
             return None
         try:
             with zipfile.ZipFile(output_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
@@ -75,10 +78,10 @@ class Xml2Quiz:
                         file_path = os.path.join(root, file)
                         # Write the file to the zip file with a relative path
                         zipf.write(file_path, os.path.relpath(file_path, parent))
-            print(f"Zip file created successfully: {output_filename}")
+            log.info(f"Zip file created successfully: {output_filename}")
             return output_filename
         except Exception as e:
-            print(f"An error occurred while creating the zip file: {str(e)}")
+            log.error(f"An error occurred while creating the zip file: {str(e)}")
             return None
 
     def check_files(self):
@@ -88,7 +91,7 @@ class Xml2Quiz:
             if not Utils.check_files_in_dir(".xml", self.cfg.output_dir_xml):
                 raise OSError(f"output xml directory: {self.cfg.output_dir_xml}")
         except (OSError) as e:
-            print(f"Error: {e}")
+            log.error(f"Error: {e}")
             sys.exit(1)
 
     def run(self):
@@ -97,7 +100,7 @@ class Xml2Quiz:
 
 
 def xml_to_quiz(cfg):
-    print("Converting from XML to Quiz")
+    log.info("Converting from XML to Quiz")
     engine = Xml2Quiz(cfg)
     engine.run()
 

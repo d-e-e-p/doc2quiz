@@ -3,9 +3,12 @@
 #
 
 import sys
+import logging
 
 from .Utils import Utils
 from .Qti import Qti
+
+log = logging.getLogger()
 
 
 class Yaml2Xml:
@@ -37,7 +40,7 @@ class Yaml2Xml:
                 with open(xml_file_name, 'w', encoding='utf-8') as file:
                     file.write(xml_content)
                     file.write(f"\n<!-- {chapter} {title} -->\n")
-                    print(f'Saved {chapter} to {xml_file_name}')
+                    log.info(f'Saved {chapter} to {xml_file_name}')
 
     def check_files(self):
         try:
@@ -55,16 +58,17 @@ class Yaml2Xml:
                 raise OSError(f"Invalid CSV file: {self.cfg.input_file_csv}")
 
         except (OSError) as e:
-            print(f"Error: {e}")
+            log.error(f"Error: {e}")
             sys.exit(1)
 
     def run(self):
+        Utils.setup_logging()
         self.check_files()
         self.process_yaml()
 
 
 def yaml_to_xml(cfg):
-    print("Converting from YAML to XML...")
+    log.info("Converting from YAML to XML...")
     engine = Yaml2Xml(cfg)
     engine.run()
 

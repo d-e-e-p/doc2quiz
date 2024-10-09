@@ -2,13 +2,17 @@
 #
 #
 import argparse
+import logging
 from .Utils import Config
+from .Utils import Utils
 
 # steps
 from .Pdf2Txt import pdf_to_txt         # noqa: F401
 from .Txt2Yaml import txt_to_yaml       # noqa: F401
 from .Yaml2Xml import yaml_to_xml       # noqa: F401
 from .Xml2Quiz import xml_to_quiz       # noqa: F401
+
+log = logging.getLogger()
 
 
 class Doc2Quiz:
@@ -33,7 +37,7 @@ class Doc2Quiz:
         self.parser.add_argument('--model',
                                  default='gpt-4o-2024-08-06',
                                  help="chat model, eg gpt-4o-mini or claude-3-5-sonnet-20240620.")
-        self.parser.add_argument('--no_feedback_images', action='store_true', 
+        self.parser.add_argument('--no_feedback_images', action='store_true',
                                  help="do not generate images of pdf for feedback on quiz questions")
         self.parser.add_argument('--num_words_per_question',
                                  default='200',
@@ -52,7 +56,7 @@ class Doc2Quiz:
             method = globals()[method_name]
             method(self.cfg)
         else:
-            print(f"The method '{method_name}' does not exist or is not callable.")
+            log.error(f"The method '{method_name}' does not exist or is not callable.")
 
     def process_conversion(self):
         from_format = self.cfg.from_format
@@ -63,16 +67,17 @@ class Doc2Quiz:
             to_idx = self.stages.index(to_format)
 
             if from_idx >= to_idx:
-                print(f"Conversion from {from_format} to {to_format} is not valid.")
+                log.error(f"Conversion from {from_format} to {to_format} is not valid.")
                 return
 
             # Loop through the required stages and call the corresponding methods
             for i in range(from_idx, to_idx):
                 method_name = f"{self.stages[i]}_to_{self.stages[i + 1]}"
+                Utils.change_log_file(f"logs/{method_name}.log")
                 self.call_method_if_exists(method_name)
 
         except ValueError as e:
-            print(f"Invalid format specified: {e}")
+            log.error(f"Invalid format specified: {e}")
 
     def update_config(self, args):
         # from is a reserved keyword in python, so we have to use getattr
@@ -94,6 +99,7 @@ class Doc2Quiz:
 
 
 def run():
+    Utils.setup_logging()
     doc2quiz = Doc2Quiz()
     doc2quiz.run()
 

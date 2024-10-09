@@ -3,6 +3,7 @@
 import random
 import re
 import hashlib
+import logging
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 
@@ -11,6 +12,8 @@ from pydantic_yaml import parse_yaml_raw_as
 
 from .Quiz import Quiz
 from .ImageGen import ImageGen
+
+log = logging.getLogger()
 
 
 class Qti:
@@ -43,7 +46,7 @@ class Qti:
         if method:
             method(item, item_element)
         else:
-            print(f"No handler found for item type: {item.type}")
+            log.error(f"No handler found for item type: {item.type}")
 
     def hash_string_to_key(self, text, length=8):
         hash_object = hashlib.sha256(text.encode('utf-8'))
@@ -120,12 +123,12 @@ class Qti:
     def safe_tostring(self, element):
         for subelement in element.iter():
             for key, value in subelement.attrib.items():
-                print(f" k={key} v={value}")
+                log.debug(f" k={key} v={value}")
                 if value is None:
-                    print(f" --------------------------------- NONE k={key} v={value}")
+                    log.debug(f" --------------------------------- NONE k={key} v={value}")
                     subelement.attrib[key] = ""
             if subelement.text is None:
-                print(f" --------------------------------- NONE k={subelement.text}")
+                log.debug(f" --------------------------------- NONE k={subelement.text}")
                 subelement.text = ""
         return ET.tostring(element)
 
@@ -217,7 +220,7 @@ class Qti:
         dropdown_blanks = [dd.dropdown for dd in dropdowns]
         are_equal = set(label_blanks) == set(dropdown_blanks)
         if not are_equal:
-            print(f"WARNING: blanks not equal. label_blanks = {label_blanks} dropdown_blanks={dropdown_blanks}")
+            log.warn(f"WARNING: blanks not equal. label_blanks = {label_blanks} dropdown_blanks={dropdown_blanks}")
 
         if dropdown.dropdown:
             ident = "response_" + dropdown.dropdown
@@ -240,7 +243,6 @@ class Qti:
                 for imgname in self.quote_images[item.ident]:
                     imgsrc = f"$IMS-CC-FILEBASE$/Uploaded Media/png/{imgname}"
                     mattext.text += f"""<img src="{imgsrc}">\n"""
-
 
     def _handle_multiple_dropdowns_item(self, item, item_element):
         # Add the presentation element

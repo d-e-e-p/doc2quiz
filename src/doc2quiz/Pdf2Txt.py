@@ -2,10 +2,13 @@
 #
 #
 import sys
+import logger
 from pypdf import PdfReader
 from prettytable import PrettyTable
 
 from .Utils import Utils
+
+log = logger.getLogger()
 
 
 # Custom error types
@@ -37,8 +40,8 @@ class Pdf2Txt:
         for row in res:
             table.add_row(row)
 
-        print(f" number of words per question is {self.cfg.num_words_per_question}")
-        print(table)
+        log.info(f" number of words per question is {self.cfg.num_words_per_question}")
+        log.info(table)
 
     def extract_chapter_text_from_pdf(self):
         res = []
@@ -60,7 +63,7 @@ class Pdf2Txt:
                     with open(file_name, 'w', encoding='utf-8') as text_file:
                         text_file.write(f"{chapter} - {title} (pages {start_page + 1} to {end_page + 1})\n")
                         text_file.write(extracted_text)
-                    print(f'Saved from p{start_page + 1} to p{end_page + 1} to {file_name}')
+                    log.info(f'Saved from p{start_page + 1} to p{end_page + 1} to {file_name}')
                     num_pages = end_page - start_page + 1
                     num_words = len(extracted_text.split())
                     num_questions = round(num_words / self.cfg.num_words_per_question)
@@ -78,12 +81,12 @@ class Pdf2Txt:
             res = self.extract_chapter_text_from_pdf()
             self.print_summary_table(res)
         except (InputFileError, PdfExtractionError, OSError) as e:
-            print(f"Error: {e}")
+            log.error(f"Error: {e}")
             sys.exit(1)
 
 
 def pdf_to_txt(cfg):
-    print("Converting from PDF to TXT...")
+    log.info("Converting from PDF to TXT...")
     engine = Pdf2Txt(cfg)
     engine.run()
 

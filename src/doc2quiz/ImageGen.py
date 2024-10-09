@@ -3,9 +3,12 @@
 import os
 import pymupdf
 import math
+import logging
 from collections import defaultdict
 from PIL import Image
 from .Search import Search
+
+log = logging.getLogger()
 
 
 class ImageGen:
@@ -261,7 +264,7 @@ class ImageGen:
         """
         highlight_text_box = False
 
-        print("save_block_images:")
+        log.info("save_block_images:")
 
         quote_images = defaultdict(list)
 
@@ -305,7 +308,7 @@ class ImageGen:
                 try:
                     # Attempt to create an image from raw data
                     image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                    print(f" image {imgname} {pix.width} x {pix.height}")
+                    log.info(f" image {imgname} {pix.width} x {pix.height}")
                     counter += 1
                     output_file = f"{self.cfg.output_dir_png}/{imgname}"
                     dirname = os.path.dirname(output_file)
@@ -314,12 +317,13 @@ class ImageGen:
                     quote_images[ident].append(imgname)
 
                 except ValueError as e:
-                    print(f"Error creating image from pixmap: {e}")
+                    log.error(f"Error creating image from pixmap: {e}")
 
                 except Exception as e:
-                    print(f"An unexpected error occurred: {e}")
+                    log.errro(f"An unexpected error occurred: {e}")
 
                 # self.delete_all_annot(tmp_page)
+                breakpoint()
                 tmp_doc.close()
 
         return quote_images
@@ -329,7 +333,7 @@ class ImageGen:
         doc = self.merge_pages_to_single()
         output_pdf = f"{self.cfg.output_dir_pdf}/{chapter}.pdf"
         doc.save(output_pdf)
-        print(f"Composite PDF saved as '{output_pdf}'.")
+        log.info(f"Composite PDF saved as '{output_pdf}'.")
 
         page = doc[0]
         tpage = page.get_textpage()
@@ -339,7 +343,7 @@ class ImageGen:
         # quote_images = self.save_highlight_images(quotes, page, doc)
 
         doc.close()
-        print("done with imagegen")
+        log.info("done with generating images")
         return quote_images
 
 
